@@ -507,11 +507,31 @@ function evo.conductor_tick(tracks, energy, conductor_profile)
   end
 
   -- ======== KNOB RIDING ========
-  -- the conductor also touches synth params based on their knobs table
-  local knobs = conductor_profile and conductor_profile.knobs
-  if not knobs then return end
+  -- conductor-specific knobs + universal "every conductor explores these"
+  local knobs = conductor_profile and conductor_profile.knobs or {}
 
-  for _, knob in ipairs(knobs) do
+  -- universal knobs: params that EVERY conductor should touch
+  -- these are the interesting ones you find manually on VOICE page
+  local universal_knobs = {
+    {param="t1_brightness",weight=0.15, range={0.15, 0.8}, mode="drift"},
+    {param="t1_res",       weight=0.1,  range={0.05, 0.5}, mode="drift"},
+    {param="t2_res",       weight=0.12, range={0.2, 0.85}, mode="drift"},
+    {param="t2_env_dec",   weight=0.1,  range={0.05, 0.4}, mode="drift"},
+    {param="t3_res",       weight=0.1,  range={0.1, 0.6},  mode="drift"},
+    {param="t3_fmamt",     weight=0.15, range={0, 0.5},    mode="drift"},
+    {param="t3_lfoRate",   weight=0.08, range={0.5, 10},   mode="drift"},
+    {param="t3_lfoDepth",  weight=0.1,  range={0, 0.35},   mode="drift"},
+    {param="t4_res",       weight=0.1,  range={0.05, 0.5}, mode="drift"},
+    {param="t4_bits",      weight=0.08, range={6, 16},     mode="drift"},
+    {param="t4_pwm",       weight=0.1,  range={0.1, 0.9},  mode="drift"},
+  }
+
+  -- combine conductor knobs + universal
+  local all_knobs = {}
+  for _, k in ipairs(knobs) do table.insert(all_knobs, k) end
+  for _, k in ipairs(universal_knobs) do table.insert(all_knobs, k) end
+
+  for _, knob in ipairs(all_knobs) do
     -- each knob fires based on its weight * intensity
     if math.random() < knob.weight * intensity then
       if is_user_owned(knob.param) then goto skip_knob end
