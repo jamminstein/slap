@@ -690,15 +690,18 @@ function enc(n, d)
     else
       -- E2=track level, E3=reverb mix
       if n == 2 then
+        local pre = "t" .. selected_track .. "_level"
         local cur = tracks[selected_track].level
         local new_val = util.clamp(cur + d * 0.05, 0, 1)
         tracks[selected_track].level = new_val
-        params:set("t" .. selected_track .. "_level", new_val)
+        params:set(pre, new_val)
+        evo.user_touched(pre)  -- protect from WATER for 8 seconds
         flash(TRACK_SHORT[selected_track] .. " " .. string.format("%.0f%%", new_val * 100))
       elseif n == 3 then
         local cur = params:get("reverb_mix")
         local new_val = util.clamp(cur + d * 0.05, 0, 1)
         params:set("reverb_mix", new_val)
+        evo.user_touched("reverb_mix")
         flash("rev:" .. string.format("%.0f%%", new_val * 100))
       end
     end
