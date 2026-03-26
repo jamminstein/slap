@@ -425,10 +425,20 @@ function init_params()
     local sc = tracks._scale_notes or scale_notes
     if #sc > 0 and playing then
       for t = 1, NUM_TRACKS do
-        local density = 0.2 + math.random() * 0.3  -- sparse: 20-50%
+        local density = 0.2 + math.random() * 0.3
         evo.generate_pattern(tracks, t, sc, density, 0.3, 0.9)
       end
-      evo.save_home(tracks)  -- new home for returns
+      evo.save_home(tracks)
+    end
+    -- apply conductor's default mod routes (bezier active from start)
+    local prof = robot.profiles[v]
+    if prof and prof.default_mods then
+      for i, amt in ipairs(prof.default_mods) do
+        if i <= #MOD_ROUTES then
+          mod_amounts[i] = amt
+          pcall(function() params:set("mod_" .. i, amt) end)
+        end
+      end
     end
     if explorer_on then
       stop_explorer()
@@ -524,6 +534,17 @@ function init()
   end
 
   params:set("clock_tempo", 110)
+
+  -- activate default mod routes for starting conductor
+  local init_prof = robot.profiles[robot_profile]
+  if init_prof and init_prof.default_mods then
+    for i, amt in ipairs(init_prof.default_mods) do
+      if i <= #MOD_ROUTES then
+        mod_amounts[i] = amt
+        pcall(function() params:set("mod_" .. i, amt) end)
+      end
+    end
+  end
 
   -- harmony callback: conductor triggers key/scale changes
   evo.set_harmony_callback(function(move_set, requantize)
