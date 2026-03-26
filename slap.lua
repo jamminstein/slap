@@ -358,6 +358,10 @@ function init()
         {"t2_gate",      0.1, 0.8,  0.03},
         {"t3_gate",      0.2, 0.9,  0.02},
         {"t4_gate",      0.05, 0.4, 0.02},
+        {"t1_level",     0.3, 1.0,  0.03},
+        {"t2_level",     0.3, 1.0,  0.03},
+        {"t3_level",     0.3, 1.0,  0.03},
+        {"t4_level",     0.2, 1.0,  0.03},
       }
       -- also drift the stereo field
       local pan_track = math.random(1, 4)
