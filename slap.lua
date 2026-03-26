@@ -420,7 +420,16 @@ function init_params()
   params:add_option("robot_profile", "robot", robot.NAMES, 1)
   params:set_action("robot_profile", function(v)
     robot_profile = v
-    -- restart explorer with new personality if running
+    -- regenerate patterns when switching conductor
+    -- each conductor brings a fresh arrangement
+    local sc = tracks._scale_notes or scale_notes
+    if #sc > 0 and playing then
+      for t = 1, NUM_TRACKS do
+        local density = 0.2 + math.random() * 0.3  -- sparse: 20-50%
+        evo.generate_pattern(tracks, t, sc, density, 0.3, 0.9)
+      end
+      evo.save_home(tracks)  -- new home for returns
+    end
     if explorer_on then
       stop_explorer()
       start_explorer()
