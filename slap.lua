@@ -134,6 +134,10 @@ local snapshots = {}
 local midi_out_device = nil
 local midi_out_ch = 0  -- 0 = off
 
+-- OP-XY: per-track MIDI channels
+local opxy_device = nil
+local opxy_channels = {0, 0, 0, 0}  -- 0 = off, 1-16 = channel per track
+
 -- micro-assistants
 local ASSISTANT_NAMES = {"LSD", "WATER", "TURM"}
 local assistant_intensity = {0.5, 0.5, 0.5}
@@ -371,6 +375,15 @@ function init_params()
   params:add_number("midi_out_ch", "midi out ch (0=off)", 0, 16, 0)
   params:set_action("midi_out_ch", function(v) midi_out_ch = v end)
 
+  -- OP-XY
+  params:add_separator("OP-XY")
+  params:add_number("opxy_device", "opxy device", 1, 4, 1)
+  params:set_action("opxy_device", function(v) opxy_device = midi.connect(v) end)
+  for i = 1, 4 do
+    params:add_number("opxy_ch_" .. i, TRACK_SHORT[i] .. " opxy ch (0=off)", 0, 16, 0)
+    params:set_action("opxy_ch_" .. i, function(v) opxy_channels[i] = v end)
+  end
+
   -- bezier mod
   params:add_separator("MODULATION")
   params:add_control("bez_speed", "bez speed",
@@ -490,6 +503,7 @@ function init()
   bez.init()
   song_engine.init(personalities, evo, tracks)
   midi_out_device = midi.connect(1)
+  opxy_device = midi.connect(1)
 
   for i = 1, NUM_TRACKS do send_track_params(i) end
 
@@ -734,13 +748,23 @@ function trigger_note(track_idx)
     midi_out_device:note_on(step.note, math.floor(step.vel * 127), midi_out_ch)
   end
 
+  -- OP-XY out (per-track channel)
+  local opxy_ch = opxy_channels[track_idx]
+  if opxy_device and opxy_ch > 0 then
+    opxy_device:note_on(step.note, math.floor(step.vel * 127), opxy_ch)
+    -- send filter CC1 for expression
+    opxy_device:cc(1, math.floor((t.cutoff / 12000) * 127), opxy_ch)
+  end
+
   clock.run(function()
     clock.sleep(clock.get_beat_sec() * t.gate * DIVISIONS[t.division][2])
     engine.note_off(track_idx - 1)
-    -- restore p-locks
     if restore_cutoff then engine.set_param(track_idx - 1, "cutoff", restore_cutoff) end
     if midi_out_device and midi_out_ch > 0 then
       midi_out_device:note_off(step.note, 0, midi_out_ch)
+    end
+    if opxy_device and opxy_ch > 0 then
+      opxy_device:note_off(step.note, 0, opxy_ch)
     end
   end)
 end
