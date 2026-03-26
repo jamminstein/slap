@@ -1188,13 +1188,13 @@ local function draw_mix_page()
     screen.level(is_sel and 15 or 6)
     screen.move(x+ch_w/2, y_top+ch_h+7); screen.text_center(TRACK_SHORT[t])
 
-    -- pan indicator (dot on horizontal line)
+    -- pan indicator (inside bottom of fader strip)
     local pan_val = tracks[t].pan or 0
-    local pan_x = x + ch_w/2 + pan_val * (ch_w/2 - 2)
-    screen.level(7)
-    screen.move(x+2, y_top+ch_h+10); screen.line(x+ch_w-2, y_top+ch_h+10); screen.stroke()
-    screen.level(is_sel and 15 or 10)
-    screen.rect(pan_x-1, y_top+ch_h+9, 3, 3); screen.fill()
+    local pan_x = x + ch_w/2 + pan_val * (ch_w/2 - 3)
+    screen.level(12)
+    screen.move(x+2, y_top+ch_h-2); screen.line(x+ch_w-2, y_top+ch_h-2); screen.stroke()
+    screen.level(15)
+    screen.rect(pan_x-1, y_top+ch_h-3, 3, 3); screen.fill()
   end
 
   -- reverb
