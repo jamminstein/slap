@@ -370,11 +370,13 @@ function start_sequencer()
         tracks[t].position = (tracks[t].position % tracks[t].num_steps) + 1
         trigger_note(t)
       end
-      -- conductor: the maestro touches things EVERY TICK
+      -- conductor: fires every 4 ticks (once per bar)
       conductor_tick_count = conductor_tick_count + 1
-      local energy = explorer_on and song_engine.get_energy() or 0.3
-      local profile = robot.profiles[robot_profile]
-      evo.conductor_tick(tracks, energy, profile)
+      if conductor_tick_count % 4 == 0 then
+        local energy = explorer_on and song_engine.get_energy() or 0.3
+        local profile = robot.profiles[robot_profile]
+        evo.conductor_tick(tracks, energy, profile)
+      end
     end
   end)
 end

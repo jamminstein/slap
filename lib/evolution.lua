@@ -11,7 +11,7 @@ local musicutil = require "musicutil"
 local evo = {}
 
 -- ======== USER PRIORITY SYSTEM ========
-local USER_COOLDOWN = 4.0
+local USER_COOLDOWN = 8.0
 local user_owned = {}
 
 function evo.user_touched(param_name)
@@ -284,17 +284,17 @@ function evo.conductor_tick(tracks, energy, conductor_profile)
       local hi = knob.range[2]
 
       if knob.mode == "jump" then
-        -- jump to a random value in range (weighted toward center)
+        -- move toward a random target, but slowly enough to feel musical
         local center = (lo + hi) * 0.5
         local spread = (hi - lo) * 0.5
         local target = center + (math.random() - 0.5) * spread * 2 * energy
-        evo.sweep_toward(knob.param, util.clamp(target, lo, hi), 0.08)
+        evo.sweep_toward(knob.param, util.clamp(target, lo, hi), 0.03)
       elseif knob.mode == "drift" then
-        -- small random walk within range
+        -- gentle random walk within range
         local ok, cur = pcall(function() return params:get(knob.param) end)
         if ok then
-          local drift = (math.random() - 0.5) * (hi - lo) * 0.06
-          evo.sweep_toward(knob.param, util.clamp(cur + drift, lo, hi), 0.04)
+          local drift = (math.random() - 0.5) * (hi - lo) * 0.04
+          evo.sweep_toward(knob.param, util.clamp(cur + drift, lo, hi), 0.02)
         end
       end
 
