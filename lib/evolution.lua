@@ -213,10 +213,10 @@ end
 
 -- per-track pitch ranges (constrain to musical register)
 local TRACK_RANGES = {
-  {lo = 48, hi = 67},  -- track 1 (MANTA): C3-G4, pad range
-  {lo = 36, hi = 53},  -- track 2 (ZKIT): C2-F3, bass range
-  {lo = 55, hi = 79},  -- track 3 (TOROID): G3-G5, melody range
-  {lo = 36, hi = 84},  -- track 4 (BZZT): C2-C6, percussion (wider)
+  {lo = 36, hi = 55},  -- track 1 (MANTA): C2-G3, low-mid pads
+  {lo = 26, hi = 45},  -- track 2 (ZKIT): D1-A2, BASS only
+  {lo = 48, hi = 67},  -- track 3 (TOROID): C3-G4, mid melody
+  {lo = 36, hi = 72},  -- track 4 (BZZT): C2-C5, percussion
 }
 
 -- filter a note pool to a track's range

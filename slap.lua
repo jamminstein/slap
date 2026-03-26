@@ -89,16 +89,16 @@ local DIVISIONS = {
 
 -- bezier modulation routing targets
 local MOD_ROUTES = {
-  {name = "MNT.cut", param = "t1_cutoff", sc_param = "cutoff", track = 1, base_mult = 0.5},
-  {name = "MNT.spd", param = "t1_spread", sc_param = "spread", track = 1, base_mult = 0.8},
-  {name = "MNT.brt", param = "t1_brightness", sc_param = "brightness", track = 1, base_mult = 0.6},
-  {name = "ZKT.cut", param = "t2_cutoff", sc_param = "cutoff", track = 2, base_mult = 0.5},
-  {name = "ZKT.acc", param = "t2_accent", sc_param = "accent", track = 2, base_mult = 0.5},
-  {name = "TRD.cut", param = "t3_cutoff", sc_param = "cutoff", track = 3, base_mult = 0.5},
-  {name = "TRD.mrp", param = "t3_morph",  sc_param = "morph",  track = 3, base_mult = 0.5},
-  {name = "TRD.fm",  param = "t3_fmamt",  sc_param = "fmamt",  track = 3, base_mult = 0.6},
-  {name = "BZT.cut", param = "t4_cutoff", sc_param = "cutoff", track = 4, base_mult = 0.5},
-  {name = "BZT.pwm", param = "t4_pwm",    sc_param = "pwm",    track = 4, base_mult = 0.5},
+  {name = "MNT.cut", param = "t1_cutoff", sc_param = "cutoff", track = 1, base_mult = 0.25},
+  {name = "MNT.spd", param = "t1_spread", sc_param = "spread", track = 1, base_mult = 0.4},
+  {name = "MNT.brt", param = "t1_brightness", sc_param = "brightness", track = 1, base_mult = 0.3},
+  {name = "ZKT.cut", param = "t2_cutoff", sc_param = "cutoff", track = 2, base_mult = 0.25},
+  {name = "ZKT.acc", param = "t2_accent", sc_param = "accent", track = 2, base_mult = 0.3},
+  {name = "TRD.cut", param = "t3_cutoff", sc_param = "cutoff", track = 3, base_mult = 0.25},
+  {name = "TRD.mrp", param = "t3_morph",  sc_param = "morph",  track = 3, base_mult = 0.3},
+  {name = "TRD.fm",  param = "t3_fmamt",  sc_param = "fmamt",  track = 3, base_mult = 0.3},
+  {name = "BZT.cut", param = "t4_cutoff", sc_param = "cutoff", track = 4, base_mult = 0.25},
+  {name = "BZT.pwm", param = "t4_pwm",    sc_param = "pwm",    track = 4, base_mult = 0.3},
 }
 local mod_amounts = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 local mod_values = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
