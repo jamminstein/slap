@@ -387,11 +387,13 @@ function init_params()
   -- bezier mod
   params:add_separator("MODULATION")
   params:add_control("bez_speed", "bez speed",
-    controlspec.new(0.01, 3, 'exp', 0, 0.15))
+    controlspec.new(0.01, 5, 'exp', 0, 0.3))
   params:set_action("bez_speed", function(v)
     bez.set_speed("curve1", v)
     bez.set_speed("curve2", v * 2.3)
     bez.set_speed("curve3", v * 4.7)
+    bez.set_speed("curve4", v * 0.5)  -- slowest
+    bez.set_speed("curve5", v * 8)    -- fastest
   end)
   params:add_control("bez_tension", "bez tension",
     controlspec.new(0.1, 1.5, 'lin', 0.01, 0.6))
@@ -754,8 +756,18 @@ function apply_bezier_modulation()
   local b1 = bez.get_raw("curve1")
   local b2 = bez.get_raw("curve2")
   local b3 = bez.get_raw("curve3")
+  local b4 = bez.get_raw("curve4")
+  local b5 = bez.get_raw("curve5")
   local lfo_val = bez.get_raw("lfo")
-  local sources = {b1, b2, b3, lfo_val, (b1+lfo_val)*0.5, (b2+b3)*0.5}
+  -- 6 sources for 6 routes: dramatic slow + fast + cross-fed
+  local sources = {
+    b4,                       -- MNT.cut: slowest curve (dramatic pad sweeps)
+    b1 + b5 * 0.3,            -- ZKT.cut: slow + fast shimmer
+    b2,                       -- TRD.cut: medium curve
+    b3 + lfo_val * 0.4,       -- TRD.mrp: fast + lfo (morphing alive)
+    b5,                       -- BZT.cut: fastest curve
+    (b4 + b2) * 0.5,          -- BZT.pwm: blend of slow + medium
+  }
 
   for i, route in ipairs(MOD_ROUTES) do
     if mod_amounts[i] > 0.01 then
