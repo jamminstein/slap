@@ -14,6 +14,7 @@ robot.profiles = {
   {name = "SPIKE", desc = "rhythm destroyer", personality = 4, head = "square",  eyes = "cross",  mouth = "zigzag", feat = "sparks"},
   {name = "MONK",  desc = "ambient drifter",  personality = 1, head = "circle",  eyes = "dot",    mouth = "none",   feat = "halo"},
   {name = "NORI",  desc = "acid explorer",    personality = 2, head = "diamond", eyes = "arrow",  mouth = "flat",   feat = "drip"},
+  {name = "AEON",  desc = "atemporal form",   personality = 5, head = "circle",  eyes = "round",  mouth = "none",   feat = "orbit"},
 }
 
 robot.NAMES = {}
@@ -174,6 +175,16 @@ function robot.draw(idx, cx, cy, energy, active)
     screen.line(cx, cy + 5 + e + dy)
     screen.stroke()
     screen.circle(cx, cy + 6 + e + dy, 1); screen.fill()
+  elseif p.feat == "orbit" then
+    -- 3 orbiting dots at different speeds, irregular spacing
+    local r = 12 + e * 3
+    for oi = 1, 3 do
+      local speed = ({0.7, 1.3, 2.1})[oi]
+      local offset = ({0, 2.2, 4.5})[oi]
+      local ox = cx + math.cos(idle_t * speed + offset) * r
+      local oy = cy - 4 + math.sin(idle_t * speed + offset) * (r * 0.6)
+      screen.circle(ox, oy, 1.5 - oi * 0.3); screen.fill()
+    end
   end
 end
 

@@ -1,6 +1,8 @@
 -- song_engine.lua
 -- conductor for personality-based autonomous evolution
--- drives moods through form sections with energy arcs
+-- supports two modes:
+--   standard: section-based forms with fixed energy arcs
+--   atemporal: drunk-walk energy, stochastic transitions, section stretching
 
 local util = require "util"
 
@@ -14,6 +16,7 @@ song.section_ticks = 0
 song.song_count = 0
 song.energy = 0.5
 song.progress = 0
+song.mood_name = ""  -- for display
 
 -- references set during init
 song.personalities = nil
@@ -58,7 +61,15 @@ end
 
 local function compute_section_ticks(section, personality)
   local tpb = personality.ticks_per_bar or 2
-  return (section.bars or 8) * tpb
+  local bars = section.bars or 8
+
+  -- atemporal: randomize section length dramatically
+  if personality.atemporal then
+    local base = section.bars_range or {24, 96}
+    bars = math.random(base[1], base[2])
+  end
+
+  return bars * tpb
 end
 
 local function on_section_start()
@@ -69,14 +80,23 @@ local function on_section_start()
   song.tick = 0
   song.section_ticks = compute_section_ticks(s, p)
   song.progress = 0
-  song.energy = s.energy[1]
+  song.mood_name = s.name or ""
+
+  -- atemporal: start energy from current level (continuity), not section start
+  if p.atemporal then
+    -- gentle nudge toward section's center energy
+    local center = (s.energy[1] + s.energy[2]) * 0.5
+    song.energy = song.energy * 0.7 + center * 0.3
+  else
+    song.energy = s.energy[1]
+  end
 
   -- generate fresh pattern on first section or hard cuts
   if song.section_idx == 1 or s.transition == "cut" then
     for _, ti in ipairs(p.focus_tracks or {}) do
       if song.tracks[ti] then
         local density = p.density_range and
-          (p.density_range[1] + (p.density_range[2] - p.density_range[1]) * s.energy[1]) or 0.5
+          (p.density_range[1] + (p.density_range[2] - p.density_range[1]) * song.energy) or 0.5
         local scale = song.tracks._scale_notes or {}
         if #scale > 0 then
           song.evo.generate_pattern(song.tracks, ti, scale, density, 0.4, 0.9)
@@ -90,15 +110,24 @@ local function transition_to_next()
   local p = get_personality()
   if not p then return end
 
-  song.section_idx = song.section_idx + 1
+  -- atemporal: chance to SKIP a section (jump to random one)
+  if p.atemporal and math.random() < 0.25 then
+    song.section_idx = math.random(1, #p.form)
+  else
+    song.section_idx = song.section_idx + 1
+  end
 
   if song.section_idx > #p.form then
     song.song_count = song.song_count + 1
     if p.on_cycle == "vary" then
       song.section_idx = 1
-      -- vary section lengths on repeat
       for _, section in ipairs(p.form) do
-        section.bars = util.clamp(section.bars + math.random(-2, 2), 4, 24)
+        if p.atemporal then
+          -- dramatic length variation
+          section.bars = util.clamp(section.bars + math.random(-8, 8), 16, 128)
+        else
+          section.bars = util.clamp(section.bars + math.random(-2, 2), 4, 24)
+        end
       end
     else
       song.stop()
@@ -116,7 +145,18 @@ local function conductor_tick()
 
   song.tick = song.tick + 1
   song.progress = util.clamp(song.tick / math.max(song.section_ticks, 1), 0, 1)
-  song.energy = s.energy[1] + (s.energy[2] - s.energy[1]) * song.progress
+
+  if p.atemporal then
+    -- ATEMPORAL: energy drunk walk with soft bounds from section range
+    local drift = (math.random() - 0.5) * 0.04
+    -- gentle gravity toward section's energy center
+    local center = (s.energy[1] + s.energy[2]) * 0.5
+    local gravity = (center - song.energy) * 0.005
+    song.energy = util.clamp(song.energy + drift + gravity, 0.03, 0.97)
+  else
+    -- STANDARD: linear interpolation
+    song.energy = s.energy[1] + (s.energy[2] - s.energy[1]) * song.progress
+  end
 
   -- call mood function
   local mood_fn = p.moods and p.moods[s.mood]
@@ -125,8 +165,17 @@ local function conductor_tick()
     if not ok then print("personality error: " .. tostring(err)) end
   end
 
+  -- section transition
   if song.tick >= song.section_ticks then
-    transition_to_next()
+    if p.atemporal and math.random() < 0.35 then
+      -- 35% chance to EXTEND current section instead of transitioning
+      local extend = math.random(12, 32) * (p.ticks_per_bar or 1)
+      song.section_ticks = song.section_ticks + extend
+      -- reset progress but keep energy (it's drunk-walking anyway)
+      song.tick = math.floor(song.section_ticks * 0.6)
+    else
+      transition_to_next()
+    end
   end
 end
 
@@ -178,8 +227,7 @@ function song.get_personality_name()
 end
 
 function song.get_section_name()
-  local s = get_section()
-  return s and s.name or "?"
+  return song.mood_name or "?"
 end
 
 function song.get_progress()
