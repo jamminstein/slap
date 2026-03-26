@@ -1306,7 +1306,10 @@ end
 local function draw_auto_page()
   draw_header("AUTO")
 
+  -- sync robot_profile with params in case they diverged
+  robot_profile = params:get("robot_profile")
   local p = robot.profiles[robot_profile]
+  if not p then robot_profile = 1; p = robot.profiles[1] end
   local energy = explorer_on and song_engine.get_energy() or 0.3
 
   robot.draw(robot_profile, 22, 36, energy, explorer_on)
