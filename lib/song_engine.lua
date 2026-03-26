@@ -91,9 +91,29 @@ local function on_section_start()
     song.energy = s.energy[1]
   end
 
-  -- generate fresh pattern on first section or hard cuts
-  if song.section_idx == 1 or s.transition == "cut" then
-    for _, ti in ipairs(p.focus_tracks or {}) do
+  -- generate fresh patterns
+  local should_regen = (song.section_idx == 1 or s.transition == "cut")
+  -- atemporal: 40% chance to regenerate 1-2 tracks on any section start
+  if p.atemporal and not should_regen and math.random() < 0.4 then
+    should_regen = true
+  end
+
+  if should_regen then
+    local regen_tracks = p.focus_tracks or {}
+    -- atemporal: only regenerate 1-2 random tracks, not all
+    if p.atemporal and #regen_tracks > 2 then
+      local shuffled = {}
+      for _, ti in ipairs(regen_tracks) do table.insert(shuffled, ti) end
+      -- fisher-yates partial shuffle
+      for i = #shuffled, 2, -1 do
+        local j = math.random(1, i)
+        shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
+      end
+      regen_tracks = {shuffled[1]}
+      if math.random() < 0.4 then table.insert(regen_tracks, shuffled[2]) end
+    end
+
+    for _, ti in ipairs(regen_tracks) do
       if song.tracks[ti] then
         local density = p.density_range and
           (p.density_range[1] + (p.density_range[2] - p.density_range[1]) * song.energy) or 0.5

@@ -326,8 +326,8 @@ P[4] = {
 P[5] = {
   name = "ATEMPORAL",
   desc = "formless drift",
-  tick_speed = 2,       -- slower ticks (half notes)
-  ticks_per_bar = 1,    -- sparse timing
+  tick_speed = 1,       -- every beat
+  ticks_per_bar = 2,    -- enough ticks for mutations to fire
   focus_tracks = {1, 2, 3, 4},
   atemporal = true,     -- flag for song engine: drunk walk + section stretch
   on_cycle = "vary",
@@ -347,207 +347,273 @@ P[5] = {
   },
 
   moods = {
-    -- NEBULA: slow spectral clouds, everything drifts gently
+    -- helper: pick random track
+    -- (defined inline since lua closures capture upvalues)
+
+    -- NEBULA: spectral clouds — patterns shift constantly but gently
     nebula = function(evo, tracks, progress, energy)
-      -- all cutoffs drift randomly
-      for i = 1, 4 do
-        local pre = "t" .. i .. "_"
-        local drift = (math.random() - 0.5) * 0.008
-        local ok, cur = pcall(function() return params:get(pre .. "cutoff") end)
-        if ok then evo.sweep_toward(pre .. "cutoff", cur * (1 + drift), 0.003) end
+      local sc = tracks._scale_notes or {}
+      local t_pick = math.random(1, 4)
+
+      -- every tick: one note replacement somewhere (the key change!)
+      if #sc > 0 then
+        evo.pattern_mutate(tracks, t_pick, "replace_one", {scale_notes = sc})
       end
 
-      -- manta: wide, bright, slow evolving
-      evo.sweep_toward("t1_spread", 0.3 + energy * 0.5, 0.004)
-      evo.sweep_toward("t1_brightness", 0.2 + energy * 0.5, 0.004)
-      evo.sweep_toward("t1_gate", 0.8 + energy * 0.15, 0.005)
-
-      -- toroid: gentle morph movement
-      evo.sweep_toward("t3_morph", 0.2 + math.sin(progress * 3.7) * 0.3, 0.006)
-      evo.sweep_toward("t3_lfoDepth", energy * 0.25, 0.005)
-
-      -- reverb breathes with energy
-      evo.sweep_toward("reverb_mix", 0.25 + energy * 0.3, 0.005)
-
-      -- rare mutations (3% per tick = very sparse at tick_speed=2)
-      if math.random() < 0.03 then
-        local t = math.random(1, 4)
-        evo.pattern_mutate(tracks, t, "velocity_drift")
-      end
-      if math.random() < 0.015 then
-        local t = math.random(1, 4)
-        evo.pattern_mutate(tracks, t, "replace_one",
-          {scale_notes = tracks._scale_notes or {}})
-      end
-    end,
-
-    -- CURRENT: things start moving, polyrhythmic feel emerges
-    current = function(evo, tracks, progress, energy)
-      -- zkit filter opens in waves
-      local wave = math.sin(progress * 5.3) * 0.5 + 0.5
-      evo.sweep_toward("t2_cutoff", 400 + (energy * wave) * 3000, 0.008)
-      evo.sweep_toward("t2_accent", 0.3 + energy * wave * 0.5, 0.008)
-      evo.sweep_toward("t2_res", 0.4 + energy * 0.3, 0.006)
-
-      -- toroid melodic shifts
-      evo.sweep_toward("t3_cutoff", 3000 + energy * 5000, 0.006)
-      evo.sweep_toward("t3_fmamt", energy * 0.35, 0.005)
-
-      -- bzzt gains density
-      if math.random() < 0.05 * energy then
-        evo.pattern_mutate(tracks, 4, "thicken")
-      end
-      if math.random() < 0.04 then
-        evo.pattern_mutate(tracks, math.random(2, 3), "replace_one",
-          {scale_notes = tracks._scale_notes or {}})
+      -- 12% per tick: velocity micro-drift on a random track
+      if math.random() < 0.12 then
+        evo.pattern_mutate(tracks, math.random(1, 4), "velocity_drift")
       end
 
-      -- occasional harmonic shift (whole pattern transposes)
-      if math.random() < 0.01 then
-        local t = math.random(1, 3)
-        evo.pattern_mutate(tracks, t, "shift",
-          {interval = ({2, 5, 7, -5, -7, 12})[math.random(6)]})
-      end
-    end,
-
-    -- ERUPTION: intense but unpredictable, not a wall of sound
-    eruption = function(evo, tracks, progress, energy)
-      -- acid screams in bursts
-      if math.random() < 0.1 then
-        evo.sweep_toward("t2_cutoff", 2000 + math.random() * 6000, 0.04)
-        evo.sweep_toward("t2_accent", 0.7 + math.random() * 0.3, 0.04)
-      end
-      evo.sweep_toward("t2_res", 0.6 + energy * 0.25, 0.01)
-
-      -- bzzt: engine switches randomly
-      if math.random() < 0.03 then
-        pcall(function()
-          params:set("t4_engine", math.random(1, 4))
-        end)
-      end
-      evo.sweep_toward("t4_cutoff", 5000 + energy * 5000, 0.01)
-
-      -- toroid: high morph + FM
-      evo.sweep_toward("t3_morph", 0.5 + energy * 0.4, 0.01)
-      evo.sweep_toward("t3_fmamt", energy * 0.5, 0.01)
-
-      -- manta: filters open wide
-      evo.sweep_toward("t1_cutoff", 3000 + energy * 6000, 0.01)
-      evo.sweep_toward("t1_brightness", 0.6 + energy * 0.3, 0.01)
-
-      -- aggressive mutations
-      if math.random() < 0.08 then
-        evo.pattern_mutate(tracks, math.random(1,4), "accent")
-      end
-      if math.random() < 0.04 then
-        evo.pattern_mutate(tracks, math.random(1,4), "rotate",
-          {n = math.random(-3, 3)})
-      end
-
-      -- reverb pulls back during intensity
-      evo.sweep_toward("reverb_mix", 0.15, 0.01)
-    end,
-
-    -- HOLLOW: everything empties out slowly, not linearly
-    hollow = function(evo, tracks, progress, energy)
-      -- thin patterns stochastically
+      -- 6% per tick: rotate a track by 1 (phase shift)
       if math.random() < 0.06 then
-        evo.pattern_mutate(tracks, math.random(1, 4), "thin")
-      end
-      if math.random() < 0.04 then
-        evo.pattern_mutate(tracks, math.random(1, 4), "ghost")
+        evo.pattern_mutate(tracks, math.random(1, 4), "rotate", {n = ({1, -1})[math.random(2)]})
       end
 
-      -- filters drift closed
+      -- 3% per tick: transpose a track
+      if math.random() < 0.03 then
+        evo.pattern_mutate(tracks, math.random(1, 3), "shift",
+          {interval = ({2, 5, 7, -5, -7, 12, -12})[math.random(7)]})
+      end
+
+      -- param drift
+      evo.sweep_toward("t1_spread", 0.3 + energy * 0.5, 0.008)
+      evo.sweep_toward("t1_brightness", 0.2 + energy * 0.5, 0.008)
+      evo.sweep_toward("t3_morph", 0.2 + math.sin(progress * 3.7) * 0.3, 0.01)
+      evo.sweep_toward("reverb_mix", 0.25 + energy * 0.3, 0.008)
+
+      -- cutoffs wander
       for i = 1, 4 do
         local pre = "t" .. i .. "_"
         local ok, cur = pcall(function() return params:get(pre .. "cutoff") end)
-        if ok then evo.sweep_toward(pre .. "cutoff", cur * 0.997, 0.005) end
-      end
-
-      -- reverb expands as sounds recede
-      evo.sweep_toward("reverb_mix", 0.35 + (1 - energy) * 0.3, 0.006)
-      evo.sweep_toward("reverb_room", 0.7 + (1 - energy) * 0.25, 0.004)
-
-      -- manta becomes the anchor
-      evo.sweep_toward("t1_gate", 0.9, 0.005)
-      evo.sweep_toward("t1_spread", 0.5 + (1 - energy) * 0.3, 0.004)
-
-      -- rare surprise: one voice gets a dramatic shift
-      if math.random() < 0.008 then
-        local t = math.random(1, 4)
-        evo.pattern_mutate(tracks, t, "shift",
-          {interval = ({12, -12, 7, -7})[math.random(4)]})
+        if ok then
+          local drift = (math.random() - 0.5) * 0.02
+          evo.sweep_toward(pre .. "cutoff", cur * (1 + drift), 0.008)
+        end
       end
     end,
 
-    -- SPORE: minimal seeds, quiet potential
-    spore = function(evo, tracks, progress, energy)
-      -- keep things sparse
-      evo.sweep_toward("t2_gate", 0.2, 0.005)
-      evo.sweep_toward("t4_gate", 0.1, 0.005)
-      evo.sweep_toward("t1_gate", 0.85, 0.005)
+    -- CURRENT: polyrhythmic — tracks rotate at different rates
+    current = function(evo, tracks, progress, energy)
+      local sc = tracks._scale_notes or {}
 
-      -- manta pad: the main voice
-      evo.sweep_toward("t1_cutoff", 1500 + energy * 2500, 0.004)
-      evo.sweep_toward("t1_spread", 0.5 + energy * 0.2, 0.003)
-
-      -- reverb: vast
-      evo.sweep_toward("reverb_mix", 0.45, 0.005)
-      evo.sweep_toward("reverb_room", 0.85, 0.003)
-
-      -- toroid: quiet melodic fragments
-      evo.sweep_toward("t3_cutoff", 2000 + energy * 2000, 0.004)
-      evo.sweep_toward("t3_morph", 0.15 + energy * 0.2, 0.003)
-
-      -- very rare: a new note appears
-      if math.random() < 0.02 then
-        local t = ({1, 3})[math.random(2)]
-        evo.pattern_mutate(tracks, t, "thicken", {count = 1})
+      -- 15%: replace notes across tracks (keeps it moving)
+      if math.random() < 0.15 and #sc > 0 then
+        evo.pattern_mutate(tracks, math.random(1, 4), "replace_one", {scale_notes = sc})
       end
-      -- even rarer: velocity drift adds micro-dynamics
+
+      -- different tracks rotate at different probabilities = polyrhythmic drift
+      if math.random() < 0.08 then
+        evo.pattern_mutate(tracks, 2, "rotate", {n = 1})  -- bass shifts right
+      end
+      if math.random() < 0.05 then
+        evo.pattern_mutate(tracks, 3, "rotate", {n = -1}) -- melody shifts left
+      end
+      if math.random() < 0.06 then
+        evo.pattern_mutate(tracks, 4, "rotate", {n = ({1, 2, -1})[math.random(3)]})
+      end
+
+      -- density changes
+      if math.random() < 0.07 * energy then
+        evo.pattern_mutate(tracks, math.random(1, 4), "thicken")
+      end
       if math.random() < 0.04 then
         evo.pattern_mutate(tracks, math.random(1, 4), "velocity_drift")
       end
+
+      -- 4%: harmonic shift (whole track transposes)
+      if math.random() < 0.04 then
+        evo.pattern_mutate(tracks, math.random(1, 3), "shift",
+          {interval = ({2, 5, 7, -5, -7, 12})[math.random(6)]})
+      end
+
+      -- params
+      local wave = math.sin(progress * 5.3) * 0.5 + 0.5
+      evo.sweep_toward("t2_cutoff", 400 + (energy * wave) * 3000, 0.015)
+      evo.sweep_toward("t2_accent", 0.3 + energy * wave * 0.5, 0.015)
+      evo.sweep_toward("t3_cutoff", 3000 + energy * 5000, 0.01)
+      evo.sweep_toward("t3_fmamt", energy * 0.35, 0.01)
     end,
 
-    -- TIDE: long slow waves of energy, polyrhythmic undulation
-    tide = function(evo, tracks, progress, energy)
-      -- multiple sine waves at different rates create complex energy shape
-      local wave1 = math.sin(progress * 4.1) * 0.3
-      local wave2 = math.sin(progress * 7.3) * 0.15
-      local wave3 = math.sin(progress * 2.7) * 0.2
-      local composite = energy + wave1 + wave2 + wave3
-      composite = util.clamp(composite, 0.05, 0.95)
+    -- ERUPTION: aggressive — patterns get rewritten, engines switch, chaos
+    eruption = function(evo, tracks, progress, energy)
+      local sc = tracks._scale_notes or {}
 
-      -- all cutoffs follow the composite wave
-      evo.sweep_toward("t1_cutoff", 1500 + composite * 5000, 0.006)
-      evo.sweep_toward("t2_cutoff", 400 + composite * 3000, 0.006)
-      evo.sweep_toward("t3_cutoff", 2000 + composite * 5000, 0.006)
-      evo.sweep_toward("t4_cutoff", 3000 + composite * 5000, 0.006)
+      -- 10%: full pattern regeneration on one track (THIS is what keeps it fresh)
+      if math.random() < 0.1 and #sc > 0 then
+        local t = math.random(1, 4)
+        local density = 0.4 + energy * 0.4
+        evo.generate_pattern(tracks, t, sc, density, 0.5, 1.0)
+      end
 
-      -- accent follows wave
-      evo.sweep_toward("t2_accent", 0.3 + composite * 0.5, 0.008)
+      -- 15%: replace individual notes
+      if math.random() < 0.15 and #sc > 0 then
+        evo.pattern_mutate(tracks, math.random(1, 4), "replace_one", {scale_notes = sc})
+      end
 
-      -- morph follows a different phase
-      evo.sweep_toward("t3_morph", 0.2 + (energy + wave2) * 0.5, 0.006)
-      evo.sweep_toward("t3_fmamt", composite * 0.3, 0.005)
+      -- 8%: rotate patterns
+      if math.random() < 0.08 then
+        evo.pattern_mutate(tracks, math.random(1, 4), "rotate",
+          {n = math.random(-3, 3)})
+      end
 
-      -- density follows composite: thick at peaks, thin at troughs
-      if composite > 0.7 and math.random() < 0.05 then
-        evo.pattern_mutate(tracks, math.random(1, 4), "thicken")
-      elseif composite < 0.3 and math.random() < 0.05 then
+      -- 6%: bzzt engine switch
+      if math.random() < 0.06 then
+        pcall(function() params:set("t4_engine", math.random(1, 4)) end)
+      end
+
+      -- 10%: accent random track
+      if math.random() < 0.1 then
+        evo.pattern_mutate(tracks, math.random(1, 4), "accent")
+      end
+
+      -- acid screams
+      if math.random() < 0.12 then
+        evo.sweep_toward("t2_cutoff", 2000 + math.random() * 6000, 0.06)
+        evo.sweep_toward("t2_accent", 0.7 + math.random() * 0.3, 0.06)
+      end
+      evo.sweep_toward("t2_res", 0.6 + energy * 0.25, 0.02)
+      evo.sweep_toward("t3_morph", 0.5 + energy * 0.4, 0.02)
+      evo.sweep_toward("t3_fmamt", energy * 0.5, 0.02)
+      evo.sweep_toward("t1_cutoff", 3000 + energy * 6000, 0.02)
+      evo.sweep_toward("reverb_mix", 0.15, 0.02)
+    end,
+
+    -- HOLLOW: patterns dissolve — notes removed, velocities drop, spaces open
+    hollow = function(evo, tracks, progress, energy)
+      local sc = tracks._scale_notes or {}
+
+      -- 10%: thin a track (remove notes)
+      if math.random() < 0.1 then
         evo.pattern_mutate(tracks, math.random(1, 4), "thin")
       end
 
-      -- reverb inverse of energy
-      evo.sweep_toward("reverb_mix", 0.2 + (1 - composite) * 0.3, 0.005)
-
-      -- occasional pattern rotation for polyrhythmic feel
-      if math.random() < 0.02 then
-        local t = math.random(1, 4)
-        evo.pattern_mutate(tracks, t, "rotate", {n = ({1, -1, 2, -2})[math.random(4)]})
+      -- 8%: ghost notes (reduce velocity)
+      if math.random() < 0.08 then
+        evo.pattern_mutate(tracks, math.random(1, 4), "ghost")
       end
+
+      -- 5%: replace a note with something distant
+      if math.random() < 0.05 and #sc > 0 then
+        evo.pattern_mutate(tracks, math.random(1, 3), "replace_one", {scale_notes = sc})
+      end
+
+      -- 3%: dramatic octave shift on one track
+      if math.random() < 0.03 then
+        evo.pattern_mutate(tracks, math.random(1, 4), "shift",
+          {interval = ({12, -12, 7, -7})[math.random(4)]})
+      end
+
+      -- filters close
+      for i = 1, 4 do
+        local pre = "t" .. i .. "_"
+        local ok, cur = pcall(function() return params:get(pre .. "cutoff") end)
+        if ok then evo.sweep_toward(pre .. "cutoff", cur * 0.995, 0.01) end
+      end
+
+      evo.sweep_toward("reverb_mix", 0.35 + (1 - energy) * 0.3, 0.01)
+      evo.sweep_toward("reverb_room", 0.7 + (1 - energy) * 0.25, 0.008)
+      evo.sweep_toward("t1_gate", 0.9, 0.01)
+      evo.sweep_toward("t1_spread", 0.5 + (1 - energy) * 0.3, 0.008)
+    end,
+
+    -- SPORE: minimal — but notes still change when they appear
+    spore = function(evo, tracks, progress, energy)
+      local sc = tracks._scale_notes or {}
+
+      -- keep thinning until sparse
+      if math.random() < 0.08 then
+        evo.pattern_mutate(tracks, math.random(2, 4), "thin")
+      end
+
+      -- but occasionally add one note back (the "spore")
+      if math.random() < 0.05 then
+        local t = ({1, 3})[math.random(2)]
+        evo.pattern_mutate(tracks, t, "thicken", {count = 1})
+      end
+
+      -- 8%: change the notes that exist
+      if math.random() < 0.08 and #sc > 0 then
+        evo.pattern_mutate(tracks, math.random(1, 3), "replace_one", {scale_notes = sc})
+      end
+
+      -- velocity drift keeps micro-dynamics alive
+      if math.random() < 0.1 then
+        evo.pattern_mutate(tracks, math.random(1, 4), "velocity_drift")
+      end
+
+      -- 3%: transpose fragments
+      if math.random() < 0.03 then
+        evo.pattern_mutate(tracks, ({1, 3})[math.random(2)], "shift",
+          {interval = ({5, 7, -5, 12})[math.random(4)]})
+      end
+
+      evo.sweep_toward("t2_gate", 0.2, 0.01)
+      evo.sweep_toward("t4_gate", 0.1, 0.01)
+      evo.sweep_toward("t1_gate", 0.85, 0.01)
+      evo.sweep_toward("t1_cutoff", 1500 + energy * 2500, 0.008)
+      evo.sweep_toward("reverb_mix", 0.45, 0.01)
+      evo.sweep_toward("reverb_room", 0.85, 0.006)
+    end,
+
+    -- TIDE: everything moves in complex overlapping waves
+    tide = function(evo, tracks, progress, energy)
+      local sc = tracks._scale_notes or {}
+      local wave1 = math.sin(progress * 4.1) * 0.3
+      local wave2 = math.sin(progress * 7.3) * 0.15
+      local wave3 = math.sin(progress * 2.7) * 0.2
+      local composite = util.clamp(energy + wave1 + wave2 + wave3, 0.05, 0.95)
+
+      -- pattern mutations follow the composite wave
+      -- at peaks: thicken + accent. at troughs: thin + ghost
+      if composite > 0.65 then
+        if math.random() < 0.1 then
+          evo.pattern_mutate(tracks, math.random(1, 4), "thicken")
+        end
+        if math.random() < 0.08 then
+          evo.pattern_mutate(tracks, math.random(1, 4), "accent")
+        end
+      elseif composite < 0.35 then
+        if math.random() < 0.08 then
+          evo.pattern_mutate(tracks, math.random(1, 4), "thin")
+        end
+        if math.random() < 0.06 then
+          evo.pattern_mutate(tracks, math.random(1, 4), "ghost")
+        end
+      end
+
+      -- 10%: note replacements (constant melodic drift)
+      if math.random() < 0.1 and #sc > 0 then
+        evo.pattern_mutate(tracks, math.random(1, 4), "replace_one", {scale_notes = sc})
+      end
+
+      -- 5%: rotate for polyrhythmic phase shift
+      if math.random() < 0.05 then
+        evo.pattern_mutate(tracks, math.random(1, 4), "rotate",
+          {n = ({1, -1, 2, -2})[math.random(4)]})
+      end
+
+      -- 3%: harmonic shift
+      if math.random() < 0.03 then
+        evo.pattern_mutate(tracks, math.random(1, 3), "shift",
+          {interval = ({5, 7, -5, -7, 12})[math.random(5)]})
+      end
+
+      -- 5%: regenerate one track entirely at wave peak
+      if composite > 0.8 and math.random() < 0.05 and #sc > 0 then
+        local t = math.random(1, 4)
+        evo.generate_pattern(tracks, t, sc, 0.4 + composite * 0.3, 0.4, 0.9)
+      end
+
+      -- cutoffs follow composite
+      evo.sweep_toward("t1_cutoff", 1500 + composite * 5000, 0.01)
+      evo.sweep_toward("t2_cutoff", 400 + composite * 3000, 0.01)
+      evo.sweep_toward("t3_cutoff", 2000 + composite * 5000, 0.01)
+      evo.sweep_toward("t4_cutoff", 3000 + composite * 5000, 0.01)
+      evo.sweep_toward("t2_accent", 0.3 + composite * 0.5, 0.012)
+      evo.sweep_toward("t3_morph", 0.2 + (energy + wave2) * 0.5, 0.01)
+      evo.sweep_toward("t3_fmamt", composite * 0.3, 0.008)
+      evo.sweep_toward("reverb_mix", 0.2 + (1 - composite) * 0.3, 0.008)
     end,
   },
 }
