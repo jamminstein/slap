@@ -40,6 +40,7 @@ local MOD_ROUTES = {
   {name = "BZT.pwm", param = "t4_pwm",    sc_param = "pwm",    track = 4, base_mult = 0.3},
 }
 local mod_amounts = {0, 0, 0, 0, 0, 0}
+local mod_values = {0, 0, 0, 0, 0, 0}  -- live modulation output (-1 to 1)
 local selected_route = 1
 
 -- ======== STATE ========
@@ -328,8 +329,12 @@ function apply_bezier_modulation()
   for i, route in ipairs(MOD_ROUTES) do
     if mod_amounts[i] > 0.01 then
       local base = params:get(route.param)
-      local mod = sources[i] * mod_amounts[i] * base * route.base_mult
+      local raw = sources[i] * mod_amounts[i]
+      mod_values[i] = raw  -- store for screen
+      local mod = raw * base * route.base_mult
       engine.set_param(route.track - 1, route.sc_param, util.clamp(base + mod, 30, 16000))
+    else
+      mod_values[i] = 0
     end
   end
 end
@@ -784,41 +789,90 @@ end
 local function draw_mod_page()
   draw_header("MOD")
 
-  -- bezier waveforms
+  -- top: 3 bezier waveforms (compact, 10px tall)
   local curves = {"curve1", "curve2", "curve3"}
   for ci, cname in ipairs(curves) do
     local history, idx = bez.get_history(cname)
     local x0 = (ci-1) * 43
-    screen.level(ci == 1 and 10 or (ci == 2 and 7 or 4))
+    screen.level(ci == 1 and 8 or (ci == 2 and 6 or 4))
     for i = 1, 42 do
       local hi = ((idx - 1 + i - 1) % 64) + 1
       local val = history[hi] or 0
       local px = x0 + i
-      local py = 22 - val * 8
+      local py = 16 - val * 5
       if i == 1 then screen.move(px, py) else screen.line(px, py) end
     end
     screen.stroke()
   end
 
-  -- route bars
+  -- middle: 4 track rows showing live modulation
+  -- each row: track name | base bar | modulation overlay | value
+  local route_by_track = {{}, {}, {}, {}}
   for i, route in ipairs(MOD_ROUTES) do
-    local x = 2 + (i-1) * 21
-    local h = math.floor(mod_amounts[i] * 20)
-    -- bar
-    screen.level(i == selected_route and 15 or 4)
-    if h > 0 then
-      screen.rect(x, 34 + 20 - h, 18, h)
-      screen.fill()
-    end
-    -- outline
-    screen.level(i == selected_route and 10 or 2)
-    screen.rect(x, 34, 18, 20)
-    screen.stroke()
-    -- label
-    screen.level(i == selected_route and 15 or 4)
-    screen.move(x + 9, 62)
-    screen.text_center(route.name:sub(1,3))
+    table.insert(route_by_track[route.track], i)
   end
+
+  for t = 1, 4 do
+    local y = 22 + (t-1) * 10
+    local is_sel = false
+
+    -- track label
+    screen.level(6)
+    screen.move(0, y + 7)
+    screen.text(TRACK_SHORT[t])
+
+    -- base cutoff bar (normalized 0-1)
+    local cut_norm = math.log(math.max(tracks[t].cutoff, 30) / 30) / math.log(12000 / 30)
+    local bar_w = math.floor(cut_norm * 80)
+    screen.level(3)
+    screen.rect(22, y + 1, 80, 7)
+    screen.stroke()
+    screen.level(5)
+    screen.rect(22, y + 1, bar_w, 7)
+    screen.fill()
+
+    -- modulation overlay: show active routes as bright pulses on top
+    for _, ri in ipairs(route_by_track[t]) do
+      if mod_amounts[ri] > 0.01 then
+        local mv = mod_values[ri] or 0
+        -- draw modulation as a moving bright segment
+        local mod_x = 22 + bar_w + math.floor(mv * 40)
+        mod_x = util.clamp(mod_x, 22, 101)
+        local mod_w = math.max(2, math.floor(math.abs(mv) * 20))
+        local bright = math.floor(8 + math.abs(mv) * 7)
+        screen.level(util.clamp(bright, 1, 15))
+        if mv >= 0 then
+          screen.rect(mod_x, y + 1, mod_w, 7)
+        else
+          screen.rect(mod_x - mod_w, y + 1, mod_w, 7)
+        end
+        screen.fill()
+
+        -- route indicator dot (selected route highlighted)
+        if ri == selected_route then
+          screen.level(15)
+          screen.rect(104, y + 2, 4, 5)
+          screen.fill()
+        end
+      end
+    end
+
+    -- value readout
+    screen.level(4)
+    screen.move(110, y + 7)
+    screen.text(string.format("%.0f", tracks[t].cutoff))
+  end
+
+  -- bottom: selected route info
+  local r = MOD_ROUTES[selected_route]
+  screen.level(12)
+  screen.move(0, 63)
+  screen.text(selected_route .. "/" .. #MOD_ROUTES .. " " .. r.name)
+  screen.level(8)
+  screen.move(70, 63)
+  screen.text("d:" .. string.format("%.0f%%", mod_amounts[selected_route] * 100))
+
+  draw_step_bar()
 end
 
 -- ---- PAGE 4: AUTO ----
