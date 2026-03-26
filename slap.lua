@@ -1,7 +1,7 @@
 -- slap
 -- 4-part autonomous synth sequencer
 -- inspired by Fred's Lab:
--- MANATEE / ZEKIT / TOORO / BUZZZY!
+-- MANTA / ZKIT / TOROID / BZZT
 --
 -- E1: page select
 -- E2/E3: page params
@@ -26,17 +26,17 @@ local song_engine = include("lib/song_engine")
 local PAGES = {"SEQ", "VOICE", "MOD", "AUTO"}
 local NUM_TRACKS = 4
 local NUM_STEPS = 16
-local TRACK_NAMES = {"MANATEE", "ZEKIT", "TOORO", "BUZZZY!"}
-local TRACK_SHORT = {"MAN", "ZEK", "TOR", "BZZ"}
+local TRACK_NAMES = {"MANTA", "ZKIT", "TOROID", "BZZT"}
+local TRACK_SHORT = {"MNT", "ZKT", "TRD", "BZT"}
 
 -- bezier modulation routing targets
 local MOD_ROUTES = {
-  {name = "MAN.cut", param = "t1_cutoff", sc_param = "cutoff", track = 1, base_mult = 0.5},
-  {name = "ZEK.cut", param = "t2_cutoff", sc_param = "cutoff", track = 2, base_mult = 0.5},
-  {name = "TOR.cut", param = "t3_cutoff", sc_param = "cutoff", track = 3, base_mult = 0.5},
-  {name = "TOR.mrp", param = "t3_morph",  sc_param = "morph",  track = 3, base_mult = 0.3},
-  {name = "BZZ.cut", param = "t4_cutoff", sc_param = "cutoff", track = 4, base_mult = 0.5},
-  {name = "BZZ.pwm", param = "t4_pwm",    sc_param = "pwm",    track = 4, base_mult = 0.3},
+  {name = "MNT.cut", param = "t1_cutoff", sc_param = "cutoff", track = 1, base_mult = 0.5},
+  {name = "ZKT.cut", param = "t2_cutoff", sc_param = "cutoff", track = 2, base_mult = 0.5},
+  {name = "TRD.cut", param = "t3_cutoff", sc_param = "cutoff", track = 3, base_mult = 0.5},
+  {name = "TRD.mrp", param = "t3_morph",  sc_param = "morph",  track = 3, base_mult = 0.3},
+  {name = "BZT.cut", param = "t4_cutoff", sc_param = "cutoff", track = 4, base_mult = 0.5},
+  {name = "BZT.pwm", param = "t4_pwm",    sc_param = "pwm",    track = 4, base_mult = 0.3},
 }
 local mod_amounts = {0, 0, 0, 0, 0, 0}  -- per-route modulation depth (0-1)
 local selected_route = 1
@@ -87,7 +87,7 @@ function init_tracks()
     end
   end
 
-  -- MANATEE: sustained spectral pads
+  -- MANTA: sustained spectral pads
   local m = tracks[1]
   m.cutoff = 3500; m.res = 0.15; m.gate = 0.95
   m.spread = 0.4; m.brightness = 0.6
@@ -96,7 +96,7 @@ function init_tracks()
     m.steps[p[1]] = {on = true, note = p[2], vel = p[3]}
   end
 
-  -- ZEKIT: acid bassline
+  -- ZKIT: acid bassline
   local z = tracks[2]
   z.cutoff = 500; z.res = 0.75; z.gate = 0.45; z.accent = 0.85
   local z_pat = {{1,38,1.0},{4,38,0.7},{6,41,0.9},{8,43,0.6},{9,45,1.0},{12,45,0.5},{14,43,0.8},{16,41,0.6}}
@@ -104,7 +104,7 @@ function init_tracks()
     z.steps[p[1]] = {on = true, note = p[2], vel = p[3]}
   end
 
-  -- TOORO: melodic arpeggio
+  -- TOROID: melodic arpeggio
   local t = tracks[3]
   t.cutoff = 4500; t.res = 0.3; t.gate = 0.55
   t.morph = 0.35; t.fmamt = 0.25; t.lfoRate = 3; t.lfoDepth = 0.15
@@ -113,7 +113,7 @@ function init_tracks()
     t.steps[p[1]] = {on = true, note = p[2], vel = p[3]}
   end
 
-  -- BUZZZY: percussive hits
+  -- BZZT: percussive hits
   local b = tracks[4]
   b.cutoff = 7000; b.res = 0.15; b.gate = 0.15
   b.engine_sel = 0; b.pwm = 0.5; b.bits = 10
@@ -728,7 +728,7 @@ local function draw_voice_page()
     screen.text("fm:" .. string.format("%.2f", t.fmamt or 0))
   elseif selected_track == 4 then
     screen.move(2, 58)
-    screen.text("eng:" .. ({"PLS","FM","WAV","NOI"})[math.floor(t.engine_sel or 0) + 1])
+    screen.text("eng:" .. ({"PLS", "FM", "WAV", "NOI"})[math.floor(t.engine_sel or 0) + 1])
     screen.move(64, 58)
     screen.text("bits:" .. string.format("%.0f", t.bits or 10))
   end

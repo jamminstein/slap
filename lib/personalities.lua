@@ -6,14 +6,14 @@ local util = require "util"
 
 local P = {}
 
-P.NAMES = {"MANATEE", "ZEKIT", "TOORO", "BUZZZY!"}
+P.NAMES = {"MANTA", "ZKIT", "TOROID", "BZZT"}
 
 -- ======================================================================
--- 1. MANATEE — The Ambient Drifter
+-- 1. MANTA — The Ambient Drifter
 -- spectral pads that evolve through harmonic clouds
 -- ======================================================================
 P[1] = {
-  name = "MANATEE",
+  name = "MANTA",
   desc = "ambient spectral drift",
   tick_speed = 2,
   ticks_per_bar = 2,
@@ -85,11 +85,11 @@ P[1] = {
 }
 
 -- ======================================================================
--- 2. ZEKIT — The Acid Machine
+-- 2. ZKIT — The Acid Machine
 -- squelchy bass patterns that build and strip
 -- ======================================================================
 P[2] = {
-  name = "ZEKIT",
+  name = "ZKIT",
   desc = "acid bass machine",
   tick_speed = 1,
   ticks_per_bar = 2,
@@ -167,11 +167,11 @@ P[2] = {
 }
 
 -- ======================================================================
--- 3. TOORO — The Melodic Explorer
+-- 3. TOROID — The Melodic Explorer
 -- waveform morphing arpeggios that shift harmonically
 -- ======================================================================
 P[3] = {
-  name = "TOORO",
+  name = "TOROID",
   desc = "melodic morph explorer",
   tick_speed = 1,
   ticks_per_bar = 2,
@@ -242,11 +242,11 @@ P[3] = {
 }
 
 -- ======================================================================
--- 4. BUZZZY! — The Rhythm Architect
+-- 4. BZZT — The Rhythm Architect
 -- multi-engine percussion that builds and breaks
 -- ======================================================================
 P[4] = {
-  name = "BUZZZY!",
+  name = "BZZT",
   desc = "digital rhythm architect",
   tick_speed = 1,
   ticks_per_bar = 2,

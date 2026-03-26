@@ -1,9 +1,9 @@
 // Engine_Slap
 // 4-part synth inspired by Fred's Lab instruments
-// Part 0: MANATEE — spectral additive pads
-// Part 1: ZEKIT — acid bass (additive saw + moog filter)
-// Part 2: TOORO — hybrid morphing poly (varsaw + FM + analog filter)
-// Part 3: BUZZZY! — multi-engine digital (pulse/FM/waves/noise + bitcrush)
+// Part 0: MANTA — spectral additive pads
+// Part 1: ZKIT — acid bass (additive saw + moog filter)
+// Part 2: TOROID — hybrid morphing poly (varsaw + FM + analog filter)
+// Part 3: BZZT — multi-engine digital (pulse/FM/waves/noise + bitcrush)
 
 Engine_Slap : CroneEngine {
   var synths;
@@ -38,8 +38,8 @@ Engine_Slap : CroneEngine {
       Out.ar(out, sig);
     }).add;
 
-    // MANATEE — Spectral Additive Pad
-    SynthDef(\manatee, {
+    // MANTA — Spectral Additive Pad
+    SynthDef(\manta, {
       arg out=0, freq=220, amp=0.3, gate=1,
           spread=0.3, brightness=0.7,
           cutoff=2000, res=0.3, pan=0;
@@ -59,8 +59,8 @@ Engine_Slap : CroneEngine {
       Out.ar(out, Pan2.ar(sig, pan));
     }).add;
 
-    // ZEKIT — Acid Bass
-    SynthDef(\zekit, {
+    // ZKIT — Acid Bass
+    SynthDef(\zkit, {
       arg out=0, freq=110, amp=0.4, gate=1,
           cutoff=800, res=0.6, accent=0.5, pan=0;
       var sig, env, fenv;
@@ -76,8 +76,8 @@ Engine_Slap : CroneEngine {
       Out.ar(out, Pan2.ar(sig, pan));
     }).add;
 
-    // TOORO — Hybrid Morphing Poly
-    SynthDef(\tooro, {
+    // TOROID — Hybrid Morphing Poly
+    SynthDef(\toroid, {
       arg out=0, freq=330, amp=0.35, gate=1,
           morph=0.5, fmamt=0.3, cutoff=3000, res=0.4,
           lfoRate=2, lfoDepth=0.2, pan=0;
@@ -95,8 +95,8 @@ Engine_Slap : CroneEngine {
       Out.ar(out, Pan2.ar(sig, pan));
     }).add;
 
-    // BUZZZY! — Multi-Engine Digital
-    SynthDef(\buzzzy, {
+    // BZZT — Multi-Engine Digital
+    SynthDef(\bzzt, {
       arg out=0, freq=440, amp=0.3, gate=1,
           engine_sel=0, pwm=0.5, fmRatio=2, fmIndex=1,
           bits=10, cutoff=5000, res=0.2, pan=0;
@@ -127,7 +127,7 @@ Engine_Slap : CroneEngine {
       var part = msg[1].asInteger.clip(0, 3);
       var freq = msg[2].asFloat;
       var amp = msg[3].asFloat;
-      var names = [\manatee, \zekit, \tooro, \buzzzy];
+      var names = [\manta, \zkit, \toroid, \bzzt];
       var args;
 
       if(synths[part].notNil, { synths[part].set(\gate, 0) });
