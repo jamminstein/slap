@@ -1099,8 +1099,12 @@ local function draw_voice_page()
   screen.level(6); screen.move(2, 33)
   screen.text(musicutil.note_num_to_name(root_note, true) .. " " .. SCALE_SHORT[scale_type])
   if current_timbre > 0 then
-    screen.level(10); screen.move(90, 24)
-    screen.text(TIMBRES[current_timbre].name)
+    screen.level(15); screen.font_size(8)
+    screen.move(126, 18)
+    screen.text_right(TIMBRES[current_timbre].name)
+    screen.level(5)
+    screen.move(126, 26)
+    screen.text_right(TIMBRES[current_timbre].desc)
   end
 
   -- division display
