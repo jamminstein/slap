@@ -165,6 +165,26 @@ function evo.pattern_mutate(tracks, track_idx, mutation_type, args)
     -- remove 1-2 steps from track length (min 4)
     local rem = args.count or math.random(1, 2)
     t.num_steps = math.max((t.num_steps or #t.steps) - rem, 4)
+
+  elseif mutation_type == "set_length" then
+    -- drift toward a target length, one step at a time
+    local target = args.target or 16
+    local ns = t.num_steps or #t.steps
+    local sc = args.scale_notes or {}
+    if ns < target then
+      -- extend by 1
+      local new_len = math.min(ns + 1, 24)
+      for i = ns + 1, new_len do
+        if not t.steps[i] then t.steps[i] = {} end
+        t.steps[i].on = math.random() < 0.4
+        t.steps[i].note = #sc > 0 and sc[math.random(#sc)] or 60
+        t.steps[i].vel = 0.4 + math.random() * 0.5
+      end
+      t.num_steps = new_len
+    elseif ns > target then
+      -- truncate by 1
+      t.num_steps = math.max(ns - 1, 4)
+    end
   end
 end
 
