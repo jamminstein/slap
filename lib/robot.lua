@@ -218,6 +218,119 @@ robot.profiles = {
     -- special flag: forces all tracks to 16 steps
     lock_16 = true,
   },
+  -- KRAFTWERK: the original machine. minimal, precise, robotic.
+  -- almost nothing changes. when it does, it's one note. hypnotic.
+  {
+    name = "KRAFTWERK", desc = "minimal machine",
+    personality = 2, lock_16 = true,
+    head = "square", eyes = "dot", mouth = "flat", feat = "antenna",
+    intensity_range = {0.1, 0.3},
+    style = {
+      replace_one = 0.15, velocity_drift = 0.10, rotate = 0.0,
+      thicken = 0.02, thin = 0.05, shift = 0.03,
+      extend = 0.0, truncate = 0.0, accent = 0.05, ghost = 0.60,
+    },
+    knobs = {
+      {param="t2_cutoff", weight=0.3, range={300, 2000},   mode="drift"},
+      {param="t3_cutoff", weight=0.2, range={1500, 4000},  mode="drift"},
+      {param="t4_cutoff", weight=0.2, range={3000, 6000},  mode="drift"},
+      {param="reverb_mix",weight=0.1, range={0.05, 0.2},   mode="drift"},
+    },
+  },
+  -- LARRY HEARD: deep house warmth. full patterns, smooth filter sweeps,
+  -- ghost notes for groove, bass emphasis, lush pads.
+  {
+    name = "MR FINGERS", desc = "deep house warmth",
+    personality = 2, lock_16 = true,
+    head = "circle", eyes = "round", mouth = "smile", feat = "halo",
+    intensity_range = {0.25, 0.55},
+    style = {
+      replace_one = 0.15, velocity_drift = 0.20, rotate = 0.03,
+      thicken = 0.10, thin = 0.03, shift = 0.08,
+      extend = 0.0, truncate = 0.0, accent = 0.12, ghost = 0.29,
+    },
+    knobs = {
+      {param="t2_cutoff", weight=0.7, range={400, 5000},   mode="drift"},
+      {param="t2_accent", weight=0.5, range={0.3, 0.7},    mode="drift"},
+      {param="t1_cutoff", weight=0.5, range={2000, 8000},  mode="drift"},
+      {param="t1_spread", weight=0.4, range={0.3, 0.7},    mode="drift"},
+      {param="t1_brightness",weight=0.3,range={0.4, 0.8},  mode="drift"},
+      {param="t3_cutoff", weight=0.4, range={2000, 7000},  mode="drift"},
+      {param="t3_morph",  weight=0.3, range={0.2, 0.5},    mode="drift"},
+      {param="reverb_mix",weight=0.4, range={0.15, 0.4},   mode="drift"},
+      {param="mod_1",     weight=0.3, range={0, 0.3},      mode="drift"},
+      {param="mod_3",     weight=0.2, range={0, 0.3},      mode="drift"},
+    },
+  },
+  -- BURIAL: dark 2-step, ghostly, thin patterns that breathe,
+  -- heavy ghost notes, low cutoffs, shuffled feel
+  {
+    name = "BURIAL", desc = "dark ghost step",
+    personality = 4, lock_16 = true,
+    head = "diamond", eyes = "dot", mouth = "none", feat = "drip",
+    intensity_range = {0.3, 0.65},
+    style = {
+      replace_one = 0.10, velocity_drift = 0.15, rotate = 0.05,
+      thicken = 0.05, thin = 0.12, shift = 0.05,
+      extend = 0.0, truncate = 0.0, accent = 0.08, ghost = 0.40,
+    },
+    knobs = {
+      {param="t1_cutoff", weight=0.4, range={800, 3000},   mode="drift"},
+      {param="t2_cutoff", weight=0.5, range={200, 2000},   mode="drift"},
+      {param="t3_cutoff", weight=0.5, range={500, 3000},   mode="drift"},
+      {param="t4_cutoff", weight=0.4, range={2000, 6000},  mode="drift"},
+      {param="t1_spread", weight=0.3, range={0.3, 0.8},    mode="drift"},
+      {param="reverb_mix",weight=0.6, range={0.25, 0.55},  mode="drift"},
+      {param="reverb_room",weight=0.3,range={0.5, 0.9},    mode="drift"},
+      {param="t3_morph",  weight=0.3, range={0.1, 0.4},    mode="drift"},
+    },
+  },
+  -- APHEX TWIN: precise IDM. complex but locked. surprising notes,
+  -- angular pitch choices, tight gate control, controlled chaos.
+  {
+    name = "APHEX", desc = "precise IDM",
+    personality = 3, lock_16 = true,
+    head = "circle", eyes = "round", mouth = "smile", feat = "sparks",
+    intensity_range = {0.35, 0.7},
+    style = {
+      replace_one = 0.30, velocity_drift = 0.10, rotate = 0.08,
+      thicken = 0.07, thin = 0.07, shift = 0.15,
+      extend = 0.0, truncate = 0.0, accent = 0.10, ghost = 0.13,
+    },
+    knobs = {
+      {param="t2_cutoff", weight=0.6, range={200, 8000},   mode="jump"},
+      {param="t3_cutoff", weight=0.7, range={500, 10000},  mode="jump"},
+      {param="t3_morph",  weight=0.6, range={0, 0.8},      mode="jump"},
+      {param="t3_fmamt",  weight=0.5, range={0, 0.6},      mode="jump"},
+      {param="t4_cutoff", weight=0.5, range={2000, 12000}, mode="jump"},
+      {param="t4_pwm",    weight=0.4, range={0.1, 0.9},    mode="jump"},
+      {param="t2_gate",   weight=0.4, range={0.1, 0.6},    mode="jump"},
+      {param="t3_gate",   weight=0.4, range={0.15, 0.7},   mode="jump"},
+      {param="reverb_mix",weight=0.3, range={0.1, 0.35},   mode="drift"},
+      {param="mod_3",     weight=0.3, range={0, 0.5},      mode="jump"},
+      {param="mod_4",     weight=0.4, range={0, 0.4},      mode="jump"},
+    },
+  },
+  -- JEFF MILLS: minimal techno. relentless, sparse, hypnotic.
+  -- strips everything down, then adds one thing back. repeat.
+  {
+    name = "JEFF MILLS", desc = "minimal relentless",
+    personality = 4, lock_16 = true,
+    head = "square", eyes = "line", mouth = "flat", feat = "orbit",
+    intensity_range = {0.2, 0.5},
+    style = {
+      replace_one = 0.08, velocity_drift = 0.12, rotate = 0.05,
+      thicken = 0.08, thin = 0.20, shift = 0.02,
+      extend = 0.0, truncate = 0.0, accent = 0.15, ghost = 0.30,
+    },
+    knobs = {
+      {param="t2_cutoff", weight=0.5, range={200, 3000},   mode="drift"},
+      {param="t4_cutoff", weight=0.6, range={3000, 8000},  mode="drift"},
+      {param="t2_accent", weight=0.4, range={0.3, 0.7},    mode="drift"},
+      {param="t1_cutoff", weight=0.2, range={1000, 4000},  mode="drift"},
+      {param="reverb_mix",weight=0.2, range={0.05, 0.25},  mode="drift"},
+    },
+  },
 }
 
 robot.NAMES = {}
