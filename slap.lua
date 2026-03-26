@@ -24,7 +24,7 @@ local robot = include("lib/robot")
 
 -- ======== CONSTANTS ========
 
-local PAGES = {"SEQ", "VOICE", "MIX", "MOD", "AUTO"}
+local PAGES = {"SEQ", "VOICE", "MIX", "MOD", "ASSIST", "AUTO"}
 local NUM_TRACKS = 4
 local MAX_STEPS = 24
 local TRACK_NAMES = {"MANTA", "ZKIT", "TOROID", "BZZT"}
@@ -56,6 +56,12 @@ local seq_clock = nil
 -- explorer
 local explorer_on = false
 local robot_profile = 1
+
+-- micro-assistants
+local ASSISTANT_NAMES = {"LSD", "WATER", "TURM"}
+local assistant_intensity = {0.5, 0.5, 0.5}  -- 0-1 per assistant
+local assistant_activity = {0, 0, 0}          -- visual pulse (decays)
+local selected_assistant = 1
 
 -- scale
 local scale_notes = {}
@@ -306,6 +312,7 @@ function init()
       apply_bezier_modulation()
       robot.update(1/15)
       param_flash = param_flash * 0.8
+      for a = 1, 3 do assistant_activity[a] = assistant_activity[a] * 0.92 end
       for t = 1, NUM_TRACKS do
         for i = 1, MAX_STEPS do step_flash[t][i] = step_flash[t][i] * 0.7 end
       end
@@ -321,8 +328,9 @@ function init()
   -- LSD: alters perception — changes how things change
   clock.run(function()
     while true do
-      clock.sleep(2.5 + math.random() * 4) -- irregular: 2.5-6.5s
-      if not playing then goto lsd_skip end
+      clock.sleep(2.5 + math.random() * 4)
+      if not playing or assistant_intensity[1] < 0.01 then goto lsd_skip end
+      local inten = assistant_intensity[1]
       local picks = {
         {"bez_speed",   0.01, 3,    0.04},
         {"bez_tension", 0.1,  1.5,  0.05},
@@ -330,23 +338,22 @@ function init()
         {"lfo_freq",    0.01, 8,    0.03},
       }
       local p = picks[math.random(#picks)]
-      if not evo.user_override_count or true then -- always runs
-        local ok, cur = pcall(function() return params:get(p[1]) end)
-        if ok then
-          local drift = (math.random() - 0.5) * (p[3] - p[2]) * p[4]
-          local target = util.clamp(cur + drift, p[2], p[3])
-          params:set(p[1], target)
-        end
+      local ok, cur = pcall(function() return params:get(p[1]) end)
+      if ok then
+        local drift = (math.random() - 0.5) * (p[3] - p[2]) * p[4] * inten * 2
+        params:set(p[1], util.clamp(cur + drift, p[2], p[3]))
       end
+      assistant_activity[1] = 1
       ::lsd_skip::
     end
   end)
 
-  -- WATER: shapes the space — reverb, resonance, gates
+  -- WATER: shapes the space — reverb, resonance, gates, levels, pan
   clock.run(function()
     while true do
-      clock.sleep(3 + math.random() * 5) -- 3-8s
-      if not playing then goto water_skip end
+      clock.sleep(3 + math.random() * 5)
+      if not playing or assistant_intensity[2] < 0.01 then goto water_skip end
+      local inten = assistant_intensity[2]
       local picks = {
         {"reverb_room",  0.2, 0.95, 0.03},
         {"reverb_damp",  0.1, 0.9,  0.03},
@@ -363,19 +370,20 @@ function init()
         {"t3_level",     0.3, 1.0,  0.03},
         {"t4_level",     0.2, 1.0,  0.03},
       }
-      -- also drift the stereo field
+      -- stereo drift
       local pan_track = math.random(1, 4)
-      local pan_drift = (math.random() - 0.5) * 0.3
-      engine.set_param(pan_track - 1, "pan", util.clamp(pan_drift, -0.8, 0.8))
-      -- touch 1-2 things per tick
+      engine.set_param(pan_track - 1, "pan",
+        util.clamp((math.random() - 0.5) * inten * 1.6, -0.8, 0.8))
+      -- touch 1-2 params
       for _ = 1, math.random(1, 2) do
         local p = picks[math.random(#picks)]
         local ok, cur = pcall(function() return params:get(p[1]) end)
         if ok then
-          local drift = (math.random() - 0.5) * (p[3] - p[2]) * p[4]
+          local drift = (math.random() - 0.5) * (p[3] - p[2]) * p[4] * inten * 2
           params:set(p[1], util.clamp(cur + drift, p[2], p[3]))
         end
       end
+      assistant_activity[2] = 1
       ::water_skip::
     end
   end)
@@ -383,8 +391,9 @@ function init()
   -- TURMERIC: warm color — brightness, spread, lfo depth, pwm, bits
   clock.run(function()
     while true do
-      clock.sleep(4 + math.random() * 6) -- 4-10s (slowest, most subtle)
-      if not playing then goto turmeric_skip end
+      clock.sleep(4 + math.random() * 6)
+      if not playing or assistant_intensity[3] < 0.01 then goto turmeric_skip end
+      local inten = assistant_intensity[3]
       local picks = {
         {"t1_spread",     0.1, 0.8,  0.02},
         {"t1_brightness", 0.2, 0.9,  0.02},
@@ -397,9 +406,10 @@ function init()
       local p = picks[math.random(#picks)]
       local ok, cur = pcall(function() return params:get(p[1]) end)
       if ok then
-        local drift = (math.random() - 0.5) * (p[3] - p[2]) * p[4]
+        local drift = (math.random() - 0.5) * (p[3] - p[2]) * p[4] * inten * 2
         params:set(p[1], util.clamp(cur + drift, p[2], p[3]))
       end
+      assistant_activity[3] = 1
       ::turmeric_skip::
     end
   end)
@@ -560,14 +570,19 @@ function enc(n, d)
   elseif current_page == 3 then -- MIX
     if k3_held then
       -- ALT: E2=reverb room, E3=reverb damp
-      if n == 2 then user_delta("reverb_room", d * 0.02)
-      elseif n == 3 then user_delta("reverb_damp", d * 0.02) end
+      if n == 2 then user_delta("reverb_room", d * 0.05)
+      elseif n == 3 then user_delta("reverb_damp", d * 0.05) end
     else
       -- E2=selected track level, E3=reverb mix (master)
       if n == 2 then
-        user_delta("t" .. selected_track .. "_level", d * 0.02)
+        local pre = "t" .. selected_track .. "_"
+        local cur = tracks[selected_track].level
+        local new_val = util.clamp(cur + d * 0.05, 0, 1)
+        tracks[selected_track].level = new_val
+        params:set(pre .. "level", new_val)
+        flash(string.format("%.0f%%", new_val * 100))
       elseif n == 3 then
-        user_delta("reverb_mix", d * 0.02)
+        user_delta("reverb_mix", d * 0.05)
       end
     end
 
@@ -590,7 +605,26 @@ function enc(n, d)
       end
     end
 
-  elseif current_page == 5 then -- AUTO
+  elseif current_page == 5 then -- ASSIST
+    if k3_held then
+      -- ALT: E2=cycle assistant, E3=not used
+      if n == 2 then
+        selected_assistant = util.clamp(selected_assistant + d, 1, 3)
+        flash(ASSISTANT_NAMES[selected_assistant])
+      end
+    else
+      -- E2=select assistant, E3=intensity
+      if n == 2 then
+        selected_assistant = util.clamp(selected_assistant + d, 1, 3)
+        flash(ASSISTANT_NAMES[selected_assistant])
+      elseif n == 3 then
+        assistant_intensity[selected_assistant] = util.clamp(
+          assistant_intensity[selected_assistant] + d * 0.03, 0, 1)
+        flash(string.format("%.0f%%", assistant_intensity[selected_assistant] * 100))
+      end
+    end
+
+  elseif current_page == 6 then -- AUTO
     if k3_held then
       if n == 2 then user_delta("xmod_speed", d * 0.02)
       elseif n == 3 then user_delta("reverb_damp", d * 0.02) end
@@ -645,6 +679,10 @@ function key(n, z)
           params:set("mod_" .. ri, mod_amounts[ri])
           flash("BURST")
         elseif current_page == 5 then
+          -- cycle selected assistant
+          selected_assistant = (selected_assistant % 3) + 1
+          flash(ASSISTANT_NAMES[selected_assistant])
+        elseif current_page == 6 then
           -- toggle explorer
           if explorer_on then stop_explorer() else start_explorer() end
           flash(explorer_on and "EXPLORE" or "MANUAL")
@@ -1072,7 +1110,63 @@ local function draw_crazy_mod_page()
   end
 end
 
--- ---- PAGE 5: AUTO ----
+-- ---- PAGE 5: ASSIST ----
+
+local function draw_assist_page()
+  draw_header("ASSIST")
+
+  local names = {"LSD", "WATER", "TURMERIC"}
+  local descs = {"perception", "space + levels", "warm color"}
+  local colors = {15, 10, 7}
+
+  for a = 1, 3 do
+    local y = 12 + (a-1) * 17
+    local is_sel = (a == selected_assistant)
+    local inten = assistant_intensity[a]
+    local act = assistant_activity[a]
+
+    -- name
+    screen.level(is_sel and 15 or 6)
+    screen.font_size(is_sel and 16 or 8)
+    screen.move(2, y + (is_sel and 12 or 8))
+    screen.text(names[a])
+    screen.font_size(8)
+
+    -- description
+    screen.level(4)
+    screen.move(is_sel and 68 or 56, y + 5)
+    screen.text(descs[a])
+
+    -- intensity bar
+    local bar_x = is_sel and 68 or 56
+    local bar_w = 58
+    local fill_w = math.floor(inten * bar_w)
+
+    screen.level(2)
+    screen.rect(bar_x, y + 8, bar_w, 5)
+    screen.stroke()
+
+    screen.level(is_sel and 10 or 5)
+    screen.rect(bar_x, y + 8, fill_w, 5)
+    screen.fill()
+
+    -- activity pulse: flickers when assistant acts
+    if act > 0.1 then
+      screen.level(math.floor(act * colors[a]))
+      screen.rect(bar_x + fill_w - 3, y + 7, 6, 7)
+      screen.fill()
+    end
+
+    -- percentage
+    screen.level(is_sel and 12 or 4)
+    screen.move(bar_x + bar_w + 2, y + 12)
+    screen.text(string.format("%.0f", inten * 100))
+  end
+
+  draw_step_bar()
+end
+
+-- ---- PAGE 6: AUTO ----
 
 local function draw_auto_page()
   draw_header("AUTO")
@@ -1135,7 +1229,8 @@ function redraw()
   elseif current_page == 2 then draw_voice_page()
   elseif current_page == 3 then draw_mod_page()
   elseif current_page == 4 then draw_crazy_mod_page()
-  elseif current_page == 5 then draw_auto_page()
+  elseif current_page == 5 then draw_assist_page()
+  elseif current_page == 6 then draw_auto_page()
   end
 
   screen.update()
