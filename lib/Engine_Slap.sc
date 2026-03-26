@@ -9,7 +9,9 @@ Engine_Slap : CroneEngine {
   var synths;
   var part_params;
   var reverb_bus;
+  var comp_bus;
   var reverb_synth;
+  var comp_synth;
 
   *new { arg context, doneCallback;
     ^super.new(context, doneCallback);
@@ -29,12 +31,29 @@ Engine_Slap : CroneEngine {
     });
 
     reverb_bus = Bus.audio(context.server, 2);
+    comp_bus = Bus.audio(context.server, 2);
 
     // REVERB
     SynthDef(\slap_reverb, {
       arg in, out, mix=0.3, room=0.7, damp=0.5;
       var sig = In.ar(in, 2);
       sig = FreeVerb2.ar(sig[0], sig[1], mix, room, damp);
+      Out.ar(out, sig);
+    }).add;
+
+    // COMPRESSOR (master bus)
+    SynthDef(\slap_comp, {
+      arg in, out, thresh=0.5, ratio=3, attack=0.01, release=0.1, makeup=1.0;
+      var sig = In.ar(in, 2);
+      sig = Compander.ar(sig, sig,
+        thresh: thresh,
+        slopeBelow: 1,
+        slopeAbove: ratio.reciprocal,
+        clampTime: attack,
+        relaxTime: release
+      );
+      sig = sig * makeup;
+      sig = Limiter.ar(sig, 0.95);
       Out.ar(out, sig);
     }).add;
 
@@ -117,9 +136,14 @@ Engine_Slap : CroneEngine {
     context.server.sync;
 
     reverb_synth = Synth(\slap_reverb, [
-      \in, reverb_bus, \out, context.out_b,
+      \in, reverb_bus, \out, comp_bus,
       \mix, 0.3, \room, 0.7, \damp, 0.5
     ], context.xg, \addAfter);
+
+    comp_synth = Synth(\slap_comp, [
+      \in, comp_bus, \out, context.out_b,
+      \thresh, 0.5, \ratio, 3, \attack, 0.01, \release, 0.1, \makeup, 1.0
+    ], reverb_synth, \addAfter);
 
     // COMMANDS
 
@@ -170,11 +194,34 @@ Engine_Slap : CroneEngine {
     this.addCommand("reverb_damp", "f", { |msg|
       reverb_synth.set(\damp, msg[1].asFloat);
     });
+
+    // compressor
+    this.addCommand("comp_thresh", "f", { |msg|
+      comp_synth.set(\thresh, msg[1].asFloat);
+    });
+
+    this.addCommand("comp_ratio", "f", { |msg|
+      comp_synth.set(\ratio, msg[1].asFloat);
+    });
+
+    this.addCommand("comp_attack", "f", { |msg|
+      comp_synth.set(\attack, msg[1].asFloat);
+    });
+
+    this.addCommand("comp_release", "f", { |msg|
+      comp_synth.set(\release, msg[1].asFloat);
+    });
+
+    this.addCommand("comp_makeup", "f", { |msg|
+      comp_synth.set(\makeup, msg[1].asFloat);
+    });
   }
 
   free {
     synths.do({ |s| if(s.notNil, { s.free }) });
+    if(comp_synth.notNil, { comp_synth.free });
     if(reverb_synth.notNil, { reverb_synth.free });
+    if(comp_bus.notNil, { comp_bus.free });
     if(reverb_bus.notNil, { reverb_bus.free });
   }
 }

@@ -265,6 +265,20 @@ function init_params()
     controlspec.new(0, 1, 'lin', 0, 0.5))
   params:set_action("reverb_damp", function(v) engine.reverb_damp(v) end)
 
+  -- compressor
+  params:add_separator("COMPRESSOR")
+  params:add_control("comp_thresh", "comp threshold",
+    controlspec.new(0.05, 1, 'exp', 0, 0.5))
+  params:set_action("comp_thresh", function(v) engine.comp_thresh(v) end)
+
+  params:add_control("comp_ratio", "comp ratio",
+    controlspec.new(1, 20, 'exp', 0, 3))
+  params:set_action("comp_ratio", function(v) engine.comp_ratio(v) end)
+
+  params:add_control("comp_makeup", "comp makeup",
+    controlspec.new(0.5, 4, 'exp', 0, 1.0))
+  params:set_action("comp_makeup", function(v) engine.comp_makeup(v) end)
+
   -- MIDI
   params:add_separator("MIDI")
   params:add_number("midi_out_device", "midi out device", 1, 4, 1)
@@ -679,13 +693,15 @@ function enc(n, d)
 
   elseif current_page == 3 then -- MIX
     if k3_held then
-      -- ALT: E2=swing, E3=reverb room
+      -- ALT: E2=comp threshold, E3=comp makeup
       if n == 2 then
-        swing_amount = util.clamp(swing_amount + d * 2, 0, 80)
-        params:set("swing", swing_amount)
-        flash("sw:" .. swing_amount)
+        local cur = params:get("comp_thresh")
+        user_set("comp_thresh", util.clamp(cur * (1 + d * 0.05), 0.05, 1))
+        flash("thr:" .. string.format("%.0f%%", params:get("comp_thresh") * 100))
       elseif n == 3 then
-        user_delta("reverb_room", d * 0.05)
+        local cur = params:get("comp_makeup")
+        user_set("comp_makeup", util.clamp(cur + d * 0.1, 0.5, 4))
+        flash("mkup:" .. string.format("%.1f", params:get("comp_makeup")))
       end
     else
       -- E2=track level, E3=reverb mix
@@ -1071,9 +1087,13 @@ local function draw_mix_page()
   screen.level(12); screen.rect(mx+2, y_top+ch_h-rev_h-1, 14, 3); screen.fill()
   screen.level(8); screen.move(mx+9, y_top+ch_h+7); screen.text_center("REV")
 
-  -- swing indicator
+  -- comp/swing indicators bottom
+  screen.level(4); screen.move(0, y_top+ch_h+13)
+  local comp_t = params:get("comp_thresh")
+  local comp_m = params:get("comp_makeup")
+  screen.text("C:" .. string.format("%.0f", comp_t*100) .. "/" .. string.format("%.1f", comp_m))
   if swing_amount > 0 then
-    screen.level(5); screen.move(mx, y_top+ch_h+13); screen.text("sw" .. swing_amount)
+    screen.move(mx, y_top+ch_h+13); screen.text("sw" .. swing_amount)
   end
 end
 
