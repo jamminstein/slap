@@ -854,10 +854,36 @@ function enc(n, d)
         selected_step = util.clamp(selected_step, 1, tracks[selected_track].num_steps)
         flash(TRACK_NAMES[selected_track])
       elseif n == 3 then
-        -- ALT+E3: step probability
-        local step = tracks[selected_track].steps[selected_step]
-        step.prob = util.clamp((step.prob or 100) + d * 5, 0, 100)
-        flash("p:" .. step.prob .. "%")
+        -- ALT+E3: density — turn right to fill, left to thin
+        local t = tracks[selected_track]
+        local ns = t.num_steps
+        local sc = tracks._scale_notes or scale_notes
+        if d > 0 then
+          -- fill: activate a random inactive step
+          local inactive = {}
+          for s = 1, ns do if not t.steps[s].on then table.insert(inactive, s) end end
+          if #inactive > 0 then
+            local idx = inactive[math.random(#inactive)]
+            t.steps[idx].on = true
+            t.steps[idx].note = #sc > 0 and sc[math.random(#sc)] or 60
+            t.steps[idx].vel = 0.5 + math.random() * 0.4
+          end
+          -- count active
+          local count = 0
+          for s = 1, ns do if t.steps[s].on then count = count + 1 end end
+          flash(count .. "/" .. ns)
+        else
+          -- thin: deactivate a random active step (keep at least 1)
+          local active = {}
+          for s = 1, ns do if t.steps[s].on then table.insert(active, s) end end
+          if #active > 1 then
+            local idx = active[math.random(#active)]
+            t.steps[idx].on = false
+          end
+          local count = 0
+          for s = 1, ns do if t.steps[s].on then count = count + 1 end end
+          flash(count .. "/" .. ns)
+        end
       end
     else
       if n == 2 then
