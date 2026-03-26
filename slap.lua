@@ -108,6 +108,7 @@ local selected_track = 1
 local selected_step = 1
 local k3_held = false
 local k3_press_time = 0
+local k3_encoder_used = false  -- true if encoder turned while K3 held
 
 -- explorer
 local explorer_on = false
@@ -726,6 +727,9 @@ function enc(n, d)
     return
   end
 
+  -- track that encoder was used during K3 hold
+  if k3_held then k3_encoder_used = true end
+
   if current_page == 1 then -- SEQ
     if k3_held then
       if n == 2 then
@@ -863,9 +867,10 @@ function key(n, z)
     if z == 1 then
       k3_held = true
       k3_press_time = os.clock()
+      k3_encoder_used = false
     else
       k3_held = false
-      if os.clock() - k3_press_time < 0.3 then
+      if os.clock() - k3_press_time < 0.3 and not k3_encoder_used then
         if current_page == 1 then
           local sc = tracks._scale_notes or scale_notes
           if #sc > 0 then
