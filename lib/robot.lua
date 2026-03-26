@@ -14,9 +14,10 @@ local robot = {}
 
 robot.profiles = {
   -- MONONEON: unpredictable virtuoso, wild jumps, weird lengths
+  -- rides cutoffs wildly, morph all over, engine switches
   {
     name = "MONONEON", desc = "unpredictable virtuoso",
-    personality = 5, -- atemporal
+    personality = 5,
     head = "square", eyes = "cross", mouth = "zigzag", feat = "sparks",
     intensity_range = {0.4, 0.8},
     style = {
@@ -24,11 +25,23 @@ robot.profiles = {
       thicken = 0.08, thin = 0.08, shift = 0.15,
       extend = 0.10, truncate = 0.10, accent = 0.05, ghost = 0.04,
     },
+    knobs = {
+      {param="t1_cutoff", weight=0.7, range={200, 10000}, mode="jump"},
+      {param="t2_cutoff", weight=0.8, range={100, 8000},  mode="jump"},
+      {param="t3_cutoff", weight=0.7, range={500, 12000}, mode="jump"},
+      {param="t3_morph",  weight=0.9, range={0, 1},       mode="jump"},
+      {param="t3_fmamt",  weight=0.6, range={0, 0.8},     mode="drift"},
+      {param="t4_cutoff", weight=0.6, range={2000, 12000}, mode="jump"},
+      {param="t2_accent", weight=0.7, range={0.2, 1},     mode="jump"},
+      {param="t1_spread", weight=0.5, range={0, 1},       mode="drift"},
+      {param="reverb_mix",weight=0.3, range={0.1, 0.6},   mode="drift"},
+    },
   },
   -- THUNDERCAT: jazzy, complex harmonies, dreamy, virtuosic
+  -- smooth cutoff rides, morph for color, reverb for space
   {
     name = "THUNDERCAT", desc = "jazzy dreamer",
-    personality = 3, -- toroid/melodic
+    personality = 3,
     head = "pill", eyes = "round", mouth = "smile", feat = "ears",
     intensity_range = {0.25, 0.6},
     style = {
@@ -36,11 +49,22 @@ robot.profiles = {
       thicken = 0.12, thin = 0.05, shift = 0.12,
       extend = 0.03, truncate = 0.02, accent = 0.06, ghost = 0.05,
     },
+    knobs = {
+      {param="t3_cutoff", weight=0.8, range={1000, 10000}, mode="drift"},
+      {param="t3_morph",  weight=0.7, range={0.1, 0.8},    mode="drift"},
+      {param="t3_fmamt",  weight=0.5, range={0, 0.5},      mode="drift"},
+      {param="t1_cutoff", weight=0.5, range={1500, 8000},   mode="drift"},
+      {param="t1_brightness",weight=0.6,range={0.3, 0.9},   mode="drift"},
+      {param="t2_cutoff", weight=0.4, range={300, 3000},    mode="drift"},
+      {param="reverb_mix",weight=0.6, range={0.2, 0.5},     mode="drift"},
+      {param="t3_lfoDepth",weight=0.4,range={0, 0.4},       mode="drift"},
+    },
   },
   -- THOM YORKE: angular, glitchy, emotional, sudden silences
+  -- jerky cutoff moves, gate chops, reverb swells
   {
     name = "THOM YORKE", desc = "angular glitch poet",
-    personality = 5, -- atemporal
+    personality = 5,
     head = "diamond", eyes = "line", mouth = "flat", feat = "orbit",
     intensity_range = {0.2, 0.7},
     style = {
@@ -48,11 +72,23 @@ robot.profiles = {
       thicken = 0.05, thin = 0.18, shift = 0.12,
       extend = 0.05, truncate = 0.08, accent = 0.04, ghost = 0.10,
     },
+    knobs = {
+      {param="t1_cutoff", weight=0.5, range={500, 6000},   mode="jump"},
+      {param="t2_cutoff", weight=0.6, range={200, 5000},   mode="jump"},
+      {param="t3_cutoff", weight=0.7, range={800, 8000},   mode="jump"},
+      {param="t4_cutoff", weight=0.5, range={1000, 10000}, mode="jump"},
+      {param="t1_gate",   weight=0.4, range={0.3, 1.0},    mode="jump"},
+      {param="t2_gate",   weight=0.5, range={0.1, 0.8},    mode="jump"},
+      {param="t3_gate",   weight=0.4, range={0.2, 0.9},    mode="jump"},
+      {param="reverb_mix",weight=0.7, range={0.1, 0.7},    mode="drift"},
+      {param="t3_morph",  weight=0.4, range={0.1, 0.9},    mode="jump"},
+    },
   },
   -- FLEA: punk energy, explosive, slap bass, high density
+  -- rides bass cutoff + accent hard, everything loud
   {
     name = "FLEA", desc = "explosive punk funk",
-    personality = 4, -- bzzt/rhythm
+    personality = 4,
     head = "circle", eyes = "round", mouth = "zigzag", feat = "antenna",
     intensity_range = {0.5, 0.9},
     style = {
@@ -60,11 +96,21 @@ robot.profiles = {
       thicken = 0.25, thin = 0.03, shift = 0.08,
       extend = 0.06, truncate = 0.02, accent = 0.25, ghost = 0.08,
     },
+    knobs = {
+      {param="t2_cutoff", weight=0.9, range={300, 10000},  mode="jump"},
+      {param="t2_accent", weight=0.9, range={0.5, 1.0},    mode="jump"},
+      {param="t2_res",    weight=0.7, range={0.3, 0.9},    mode="drift"},
+      {param="t4_cutoff", weight=0.8, range={3000, 12000}, mode="jump"},
+      {param="t2_gate",   weight=0.5, range={0.15, 0.6},   mode="jump"},
+      {param="t1_cutoff", weight=0.4, range={2000, 8000},  mode="drift"},
+      {param="reverb_mix",weight=0.2, range={0.05, 0.3},   mode="drift"},
+    },
   },
   -- BOOTSY COLLINS: the ONE, deep pocket, space funk, groove master
+  -- subtle filter rides, reverb for space, everything smooth
   {
     name = "BOOTSY", desc = "space funk groove",
-    personality = 2, -- zkit/acid
+    personality = 2,
     head = "pill", eyes = "round", mouth = "smile", feat = "halo",
     intensity_range = {0.15, 0.45},
     style = {
@@ -72,17 +118,47 @@ robot.profiles = {
       thicken = 0.05, thin = 0.05, shift = 0.05,
       extend = 0.02, truncate = 0.02, accent = 0.15, ghost = 0.23,
     },
+    knobs = {
+      {param="t2_cutoff", weight=0.7, range={300, 3000},   mode="drift"},
+      {param="t2_accent", weight=0.5, range={0.3, 0.8},    mode="drift"},
+      {param="t1_cutoff", weight=0.4, range={1500, 5000},  mode="drift"},
+      {param="t1_spread", weight=0.3, range={0.2, 0.6},    mode="drift"},
+      {param="reverb_mix",weight=0.6, range={0.2, 0.5},    mode="drift"},
+      {param="t3_cutoff", weight=0.3, range={2000, 6000},  mode="drift"},
+      {param="t4_cutoff", weight=0.4, range={3000, 8000},  mode="drift"},
+    },
   },
   -- HERMETO PASCOAL: complete madman genius, uses everything
+  -- rides EVERYTHING: all cutoffs, morph, FM, accent, gates, engine, reverb
   {
     name = "HERMETO", desc = "total genius madman",
-    personality = 5, -- atemporal
+    personality = 5,
     head = "circle", eyes = "cross", mouth = "smile", feat = "sparks",
     intensity_range = {0.5, 0.95},
     style = {
       replace_one = 0.15, velocity_drift = 0.08, rotate = 0.12,
       thicken = 0.10, thin = 0.10, shift = 0.12,
       extend = 0.10, truncate = 0.08, accent = 0.08, ghost = 0.07,
+    },
+    knobs = {
+      {param="t1_cutoff",    weight=0.7, range={200, 10000}, mode="jump"},
+      {param="t2_cutoff",    weight=0.8, range={100, 10000}, mode="jump"},
+      {param="t3_cutoff",    weight=0.7, range={300, 12000}, mode="jump"},
+      {param="t4_cutoff",    weight=0.6, range={1000, 12000},mode="jump"},
+      {param="t1_spread",    weight=0.5, range={0, 1},       mode="jump"},
+      {param="t1_brightness",weight=0.5, range={0.1, 1},     mode="jump"},
+      {param="t2_accent",    weight=0.8, range={0, 1},       mode="jump"},
+      {param="t2_res",       weight=0.6, range={0.2, 0.9},   mode="drift"},
+      {param="t3_morph",     weight=0.8, range={0, 1},       mode="jump"},
+      {param="t3_fmamt",     weight=0.7, range={0, 0.8},     mode="jump"},
+      {param="t3_lfoRate",   weight=0.4, range={0.5, 15},    mode="jump"},
+      {param="t4_pwm",       weight=0.5, range={0.1, 0.9},   mode="jump"},
+      {param="t4_bits",      weight=0.4, range={4, 16},      mode="jump"},
+      {param="t1_gate",      weight=0.4, range={0.2, 1.0},   mode="jump"},
+      {param="t2_gate",      weight=0.5, range={0.1, 0.8},   mode="jump"},
+      {param="t3_gate",      weight=0.4, range={0.2, 0.9},   mode="drift"},
+      {param="t4_gate",      weight=0.4, range={0.05, 0.4},  mode="jump"},
+      {param="reverb_mix",   weight=0.5, range={0.05, 0.6},  mode="jump"},
     },
   },
 }

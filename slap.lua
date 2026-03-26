@@ -702,10 +702,11 @@ local function draw_seq_page()
         end
       end
 
+      -- selected cell: bright blinking outline
       if is_cur and in_range then
         screen.level(15)
-        screen.rect(x + 2, y0 + 11, 4, 1)
-        screen.fill()
+        screen.rect(x, y0 - 1, 8, 12)
+        screen.stroke()
       end
     end
   end
@@ -789,90 +790,71 @@ end
 local function draw_mod_page()
   draw_header("MOD")
 
-  -- top: 3 bezier waveforms (compact, 10px tall)
-  local curves = {"curve1", "curve2", "curve3"}
-  for ci, cname in ipairs(curves) do
-    local history, idx = bez.get_history(cname)
-    local x0 = (ci-1) * 43
-    screen.level(ci == 1 and 8 or (ci == 2 and 6 or 4))
-    for i = 1, 42 do
-      local hi = ((idx - 1 + i - 1) % 64) + 1
-      local val = history[hi] or 0
-      local px = x0 + i
-      local py = 16 - val * 5
-      if i == 1 then screen.move(px, py) else screen.line(px, py) end
-    end
-    screen.stroke()
+  -- bezier waveform across full width (single combined view)
+  local history, idx = bez.get_history("curve1")
+  screen.level(6)
+  for i = 1, 126 do
+    local hi = ((idx - 1 + math.floor(i * 0.5)) % 64) + 1
+    local val = history[hi] or 0
+    local py = 16 - val * 6
+    if i == 1 then screen.move(i, py) else screen.line(i, py) end
   end
+  screen.stroke()
 
-  -- middle: 4 track rows showing live modulation
-  -- each row: track name | base bar | modulation overlay | value
-  local route_by_track = {{}, {}, {}, {}}
-  for i, route in ipairs(MOD_ROUTES) do
-    table.insert(route_by_track[route.track], i)
-  end
-
+  -- 4 track rows: name | cutoff bar with live mod pulse | length
   for t = 1, 4 do
-    local y = 22 + (t-1) * 10
-    local is_sel = false
+    local y = 22 + (t-1) * 9
+    local cut_norm = math.log(math.max(tracks[t].cutoff, 30) / 30) / math.log(12000 / 30)
+    local bar_w = math.floor(cut_norm * 90)
 
     -- track label
-    screen.level(6)
+    screen.level(t == selected_track and 12 or 5)
     screen.move(0, y + 7)
     screen.text(TRACK_SHORT[t])
 
-    -- base cutoff bar (normalized 0-1)
-    local cut_norm = math.log(math.max(tracks[t].cutoff, 30) / 30) / math.log(12000 / 30)
-    local bar_w = math.floor(cut_norm * 80)
-    screen.level(3)
-    screen.rect(22, y + 1, 80, 7)
+    -- cutoff bar background
+    screen.level(2)
+    screen.rect(20, y + 1, 90, 6)
     screen.stroke()
-    screen.level(5)
-    screen.rect(22, y + 1, bar_w, 7)
+
+    -- cutoff bar fill
+    screen.level(t == selected_track and 8 or 4)
+    screen.rect(20, y + 1, bar_w, 6)
     screen.fill()
 
-    -- modulation overlay: show active routes as bright pulses on top
-    for _, ri in ipairs(route_by_track[t]) do
-      if mod_amounts[ri] > 0.01 then
-        local mv = mod_values[ri] or 0
-        -- draw modulation as a moving bright segment
-        local mod_x = 22 + bar_w + math.floor(mv * 40)
-        mod_x = util.clamp(mod_x, 22, 101)
-        local mod_w = math.max(2, math.floor(math.abs(mv) * 20))
-        local bright = math.floor(8 + math.abs(mv) * 7)
-        screen.level(util.clamp(bright, 1, 15))
-        if mv >= 0 then
-          screen.rect(mod_x, y + 1, mod_w, 7)
-        else
-          screen.rect(mod_x - mod_w, y + 1, mod_w, 7)
-        end
-        screen.fill()
-
-        -- route indicator dot (selected route highlighted)
-        if ri == selected_route then
-          screen.level(15)
-          screen.rect(104, y + 2, 4, 5)
-          screen.fill()
-        end
+    -- live mod pulse overlay (sum of all routes affecting this track)
+    local total_mod = 0
+    for i, route in ipairs(MOD_ROUTES) do
+      if route.track == t and mod_amounts[i] > 0.01 then
+        total_mod = total_mod + (mod_values[i] or 0)
       end
     end
+    if math.abs(total_mod) > 0.01 then
+      local pulse_x = 20 + bar_w
+      local pulse_w = math.floor(math.abs(total_mod) * 30)
+      screen.level(math.floor(8 + math.abs(total_mod) * 7))
+      if total_mod > 0 then
+        screen.rect(pulse_x, y + 1, math.min(pulse_w, 90 - bar_w), 6)
+      else
+        screen.rect(math.max(20, pulse_x - pulse_w), y + 1, pulse_w, 6)
+      end
+      screen.fill()
+    end
 
-    -- value readout
+    -- track length
     screen.level(4)
-    screen.move(110, y + 7)
-    screen.text(string.format("%.0f", tracks[t].cutoff))
+    screen.move(114, y + 7)
+    screen.text(tostring(tracks[t].num_steps))
   end
 
-  -- bottom: selected route info
+  -- bottom: selected route + controls hint
   local r = MOD_ROUTES[selected_route]
   screen.level(12)
   screen.move(0, 63)
-  screen.text(selected_route .. "/" .. #MOD_ROUTES .. " " .. r.name)
-  screen.level(8)
-  screen.move(70, 63)
-  screen.text("d:" .. string.format("%.0f%%", mod_amounts[selected_route] * 100))
-
-  draw_step_bar()
+  screen.text(r.name .. " " .. string.format("%.0f%%", mod_amounts[selected_route] * 100))
+  screen.level(5)
+  screen.move(80, 63)
+  screen.text("E2:sel E3:amt")
 end
 
 -- ---- PAGE 4: AUTO ----

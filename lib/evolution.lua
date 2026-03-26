@@ -269,6 +269,38 @@ function evo.conductor_tick(tracks, energy, conductor_profile)
 
     ::continue::
   end
+
+  -- ======== KNOB RIDING ========
+  -- the conductor also touches synth params based on their knobs table
+  local knobs = conductor_profile and conductor_profile.knobs
+  if not knobs then return end
+
+  for _, knob in ipairs(knobs) do
+    -- each knob fires based on its weight * intensity
+    if math.random() < knob.weight * intensity then
+      if is_user_owned(knob.param) then goto skip_knob end
+
+      local lo = knob.range[1]
+      local hi = knob.range[2]
+
+      if knob.mode == "jump" then
+        -- jump to a random value in range (weighted toward center)
+        local center = (lo + hi) * 0.5
+        local spread = (hi - lo) * 0.5
+        local target = center + (math.random() - 0.5) * spread * 2 * energy
+        evo.sweep_toward(knob.param, util.clamp(target, lo, hi), 0.08)
+      elseif knob.mode == "drift" then
+        -- small random walk within range
+        local ok, cur = pcall(function() return params:get(knob.param) end)
+        if ok then
+          local drift = (math.random() - 0.5) * (hi - lo) * 0.06
+          evo.sweep_toward(knob.param, util.clamp(cur + drift, lo, hi), 0.04)
+        end
+      end
+
+      ::skip_knob::
+    end
+  end
 end
 
 return evo
