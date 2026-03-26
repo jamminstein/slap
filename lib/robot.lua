@@ -216,13 +216,13 @@ robot.profiles = {
       {param="mod_5",     weight=0.2, range={0, 0.2},      mode="drift"},
     },
     -- special flag: forces all tracks to 16 steps
-    lock_16 = true,
+    lock_16 = true, requantize = true,
   },
   -- KRAFTWERK: the original machine. minimal, precise, robotic.
   -- almost nothing changes. when it does, it's one note. hypnotic.
   {
     name = "KRAFTWERK", desc = "minimal machine",
-    personality = 2, lock_16 = true,
+    personality = 2, lock_16 = true, requantize = true,
     head = "square", eyes = "dot", mouth = "flat", feat = "antenna",
     intensity_range = {0.1, 0.3}, harmony_set = "minimal", harmony_chance = 0.01,
     style = {
@@ -241,7 +241,7 @@ robot.profiles = {
   -- ghost notes for groove, bass emphasis, lush pads.
   {
     name = "MR FINGERS", desc = "deep house warmth",
-    personality = 2, lock_16 = true,
+    personality = 2, lock_16 = true, requantize = true,
     head = "circle", eyes = "round", mouth = "smile", feat = "halo",
     intensity_range = {0.25, 0.55}, harmony_set = "classical", harmony_chance = 0.03,
     style = {
@@ -266,7 +266,7 @@ robot.profiles = {
   -- heavy ghost notes, low cutoffs, shuffled feel
   {
     name = "BURIAL", desc = "dark ghost step",
-    personality = 4, lock_16 = true,
+    personality = 4, lock_16 = true, requantize = true,
     head = "diamond", eyes = "dot", mouth = "none", feat = "drip",
     intensity_range = {0.3, 0.65}, harmony_set = "world", harmony_chance = 0.03,
     style = {
@@ -289,7 +289,7 @@ robot.profiles = {
   -- angular pitch choices, tight gate control, controlled chaos.
   {
     name = "APHEX", desc = "precise IDM",
-    personality = 3, lock_16 = true,
+    personality = 3, lock_16 = true, requantize = true,
     head = "circle", eyes = "round", mouth = "smile", feat = "sparks",
     intensity_range = {0.35, 0.7}, harmony_set = "jazz", harmony_chance = 0.05,
     style = {
@@ -315,7 +315,7 @@ robot.profiles = {
   -- strips everything down, then adds one thing back. repeat.
   {
     name = "JEFF MILLS", desc = "minimal relentless",
-    personality = 4, lock_16 = true,
+    personality = 4, lock_16 = true, requantize = true,
     head = "square", eyes = "line", mouth = "flat", feat = "orbit",
     intensity_range = {0.2, 0.5}, harmony_set = "minimal", harmony_chance = 0.01,
     style = {

@@ -320,10 +320,10 @@ function evo.conductor_tick(tracks, energy, conductor_profile)
   -- occasional key/scale changes based on conductor's harmony_set
   local harm_set = conductor_profile and conductor_profile.harmony_set
   local harm_chance = conductor_profile and conductor_profile.harmony_chance or 0.03
+  local requantize = conductor_profile and conductor_profile.requantize or false
   if harm_set and math.random() < harm_chance * intensity then
-    -- defer to slap.lua via callback (set during init)
     if evo._harmony_callback then
-      evo._harmony_callback(harm_set)
+      evo._harmony_callback(harm_set, requantize)
     end
   end
 end

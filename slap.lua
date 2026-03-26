@@ -503,7 +503,7 @@ function init()
   params:set("clock_tempo", 110)
 
   -- harmony callback: conductor triggers key/scale changes
-  evo.set_harmony_callback(function(move_set)
+  evo.set_harmony_callback(function(move_set, requantize)
     local result, move_name = harmony.random_move(root_note, scale_type, move_set)
     if result then
       root_note = result.root
@@ -511,7 +511,18 @@ function init()
       params:set("root_note", root_note)
       params:set("scale_type", scale_type)
       build_scale()
-      flash(move_name)
+      -- requantize: snap ALL existing notes to the new scale immediately
+      if requantize and #scale_notes > 0 then
+        for t = 1, NUM_TRACKS do
+          for s = 1, tracks[t].num_steps do
+            local step = tracks[t].steps[s]
+            if step.on then
+              step.note = musicutil.snap_note_to_array(step.note, scale_notes)
+            end
+          end
+        end
+      end
+      flash(move_name .. (requantize and "!" or ""))
     end
   end)
 
