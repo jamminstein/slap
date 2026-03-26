@@ -753,15 +753,14 @@ function enc(n, d)
     local pre = "t" .. selected_track .. "_"
     if k3_held then
       if n == 2 then
-        -- ALT+E2: scale root
+        -- ALT+E2: cycle track
+        selected_track = util.clamp(selected_track + d, 1, NUM_TRACKS)
+        flash(TRACK_NAMES[selected_track])
+      elseif n == 3 then
+        -- ALT+E3: scale root + type combined (fine: root, coarse: type)
         root_note = util.clamp(root_note + d, 24, 72)
         params:set("root_note", root_note)
-        flash(musicutil.note_num_to_name(root_note, true))
-      elseif n == 3 then
-        -- ALT+E3: scale type
-        scale_type = util.clamp(scale_type + d, 1, #SCALE_NAMES)
-        params:set("scale_type", scale_type)
-        flash(SCALE_SHORT[scale_type])
+        flash(musicutil.note_num_to_name(root_note, true) .. " " .. SCALE_SHORT[scale_type])
       end
     else
       if n == 2 then
