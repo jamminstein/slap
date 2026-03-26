@@ -511,19 +511,30 @@ function evo.conductor_tick(tracks, energy, conductor_profile)
   local knobs = conductor_profile and conductor_profile.knobs or {}
 
   -- universal knobs: params that EVERY conductor should touch
-  -- these are the interesting ones you find manually on VOICE page
+  -- mostly drift, but some jump for occasional radical moments
   local universal_knobs = {
-    {param="t1_brightness",weight=0.15, range={0.15, 0.8}, mode="drift"},
+    {param="t1_brightness",weight=0.15, range={0.1, 0.9},  mode="drift"},
+    {param="t1_brightness",weight=0.03, range={0.05, 0.95},mode="jump"},  -- rare radical
     {param="t1_res",       weight=0.1,  range={0.05, 0.5}, mode="drift"},
+    {param="t1_res",       weight=0.02, range={0.02, 0.7}, mode="jump"},
     {param="t2_res",       weight=0.12, range={0.2, 0.85}, mode="drift"},
-    {param="t2_env_dec",   weight=0.1,  range={0.05, 0.4}, mode="drift"},
+    {param="t2_res",       weight=0.03, range={0.1, 0.95}, mode="jump"},  -- acid scream
+    {param="t2_accent",    weight=0.03, range={0, 1},      mode="jump"},  -- sudden accent
     {param="t3_res",       weight=0.1,  range={0.1, 0.6},  mode="drift"},
     {param="t3_fmamt",     weight=0.15, range={0, 0.5},    mode="drift"},
+    {param="t3_fmamt",     weight=0.03, range={0, 0.8},    mode="jump"},  -- FM explosion
+    {param="t3_morph",     weight=0.03, range={0, 1},      mode="jump"},  -- sudden morph
     {param="t3_lfoRate",   weight=0.08, range={0.5, 10},   mode="drift"},
+    {param="t3_lfoRate",   weight=0.02, range={0.1, 18},   mode="jump"},  -- LFO surge
     {param="t3_lfoDepth",  weight=0.1,  range={0, 0.35},   mode="drift"},
     {param="t4_res",       weight=0.1,  range={0.05, 0.5}, mode="drift"},
     {param="t4_bits",      weight=0.08, range={6, 16},     mode="drift"},
+    {param="t4_bits",      weight=0.02, range={4, 16},     mode="jump"},  -- bitcrush moment
     {param="t4_pwm",       weight=0.1,  range={0.1, 0.9},  mode="drift"},
+    {param="t1_spread",    weight=0.03, range={0, 0.9},    mode="jump"},  -- spectral shift
+    {param="t1_cutoff",    weight=0.02, range={200, 6000},  mode="jump"},  -- filter surprise
+    {param="t2_cutoff",    weight=0.02, range={100, 5000},  mode="jump"},
+    {param="t3_cutoff",    weight=0.02, range={300, 8000},  mode="jump"},
   }
 
   -- combine conductor knobs + universal
