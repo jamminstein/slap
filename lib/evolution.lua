@@ -206,6 +206,133 @@ function evo.generate_pattern(tracks, track_idx, pool, density, vel_lo, vel_hi)
   t.steps[1].on = true
 end
 
+-- ======== HOME SYSTEM ========
+-- saves starting patterns so the conductor can return to them
+-- creates A-B-A form: depart → explore → come home
+
+local home_patterns = nil
+local ticks_since_home = 0
+
+function evo.save_home(tracks)
+  home_patterns = {}
+  for t = 1, 4 do
+    home_patterns[t] = {
+      steps = {}, num_steps = tracks[t].num_steps,
+    }
+    for s = 1, 24 do
+      local st = tracks[t].steps[s]
+      if st then
+        home_patterns[t].steps[s] = {on = st.on, note = st.note, vel = st.vel, prob = st.prob or 100}
+      end
+    end
+  end
+  ticks_since_home = 0
+end
+
+-- return types:
+-- "full"     = ABA: restore all tracks fully (chorus)
+-- "partial"  = restore 1-2 tracks, rest keeps evolving (verse callback)
+-- "rhythm"   = restore rhythm (on/off) but keep current notes (variation)
+-- "melody"   = restore notes but keep current rhythm (reharmonized return)
+-- "ghost"    = restore at low velocity (memory/echo of the original)
+
+function evo.return_home(tracks, return_type)
+  if not home_patterns then return false end
+  return_type = return_type or "full"
+
+  if return_type == "full" then
+    -- restore everything
+    for ti = 1, 4 do
+      local home = home_patterns[ti]
+      if home then
+        tracks[ti].num_steps = home.num_steps
+        for s = 1, 24 do
+          local src = home.steps[s]
+          if src then
+            tracks[ti].steps[s].on = src.on
+            tracks[ti].steps[s].note = src.note
+            tracks[ti].steps[s].vel = src.vel
+          end
+        end
+      end
+    end
+
+  elseif return_type == "partial" then
+    -- restore 1-2 random tracks
+    local count = math.random(1, 2)
+    local indices = {1, 2, 3, 4}
+    for i = 4, 2, -1 do
+      local j = math.random(1, i)
+      indices[i], indices[j] = indices[j], indices[i]
+    end
+    for i = 1, count do
+      local ti = indices[i]
+      local home = home_patterns[ti]
+      if home then
+        tracks[ti].num_steps = home.num_steps
+        for s = 1, 24 do
+          local src = home.steps[s]
+          if src then
+            tracks[ti].steps[s].on = src.on
+            tracks[ti].steps[s].note = src.note
+            tracks[ti].steps[s].vel = src.vel
+          end
+        end
+      end
+    end
+
+  elseif return_type == "rhythm" then
+    -- restore on/off pattern but keep current notes
+    for ti = 1, 4 do
+      local home = home_patterns[ti]
+      if home then
+        tracks[ti].num_steps = home.num_steps
+        for s = 1, 24 do
+          local src = home.steps[s]
+          if src then
+            tracks[ti].steps[s].on = src.on
+            tracks[ti].steps[s].vel = src.vel
+          end
+        end
+      end
+    end
+
+  elseif return_type == "melody" then
+    -- restore notes but keep current rhythm
+    for ti = 1, 4 do
+      local home = home_patterns[ti]
+      if home then
+        for s = 1, math.min(tracks[ti].num_steps, home.num_steps) do
+          local src = home.steps[s]
+          if src then
+            tracks[ti].steps[s].note = src.note
+          end
+        end
+      end
+    end
+
+  elseif return_type == "ghost" then
+    -- restore pattern at very low velocity (echo of original)
+    for ti = 1, 4 do
+      local home = home_patterns[ti]
+      if home then
+        tracks[ti].num_steps = home.num_steps
+        for s = 1, 24 do
+          local src = home.steps[s]
+          if src then
+            tracks[ti].steps[s].on = src.on
+            tracks[ti].steps[s].note = src.note
+            tracks[ti].steps[s].vel = src.vel * 0.35
+          end
+        end
+      end
+    end
+  end
+
+  ticks_since_home = 0
+  return true
+end
+
 -- ======== CONDUCTOR ========
 -- the multi-handed maestro: uses the active conductor's style weights
 -- to decide what to touch, when, and how aggressively.
@@ -313,6 +440,30 @@ function evo.conductor_tick(tracks, energy, conductor_profile)
       end
 
       ::skip_knob::
+    end
+  end
+
+  -- ======== HOME RETURN ========
+  -- periodically return to starting patterns (creates structural form)
+  ticks_since_home = ticks_since_home + 1
+  local home_tendency = conductor_profile and conductor_profile.home_tendency or 0.03
+  local home_interval = lock_16 and 16 or 32  -- locked = return sooner
+
+  if ticks_since_home > home_interval and math.random() < home_tendency then
+    -- pick return type based on conductor character
+    local return_types
+    if lock_16 then
+      -- locked: favor full and rhythm returns (structural)
+      return_types = {"full", "full", "rhythm", "partial", "ghost"}
+    else
+      -- loose: favor partial and ghost returns (suggestive)
+      return_types = {"partial", "partial", "melody", "ghost", "ghost", "rhythm"}
+    end
+    local rtype = return_types[math.random(#return_types)]
+    evo.return_home(tracks, rtype)
+    -- signal to UI
+    if evo._harmony_callback then
+      -- reuse flash via a pseudo-callback
     end
   end
 

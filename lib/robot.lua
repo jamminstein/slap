@@ -19,7 +19,7 @@ robot.profiles = {
     name = "MONONEON", desc = "unpredictable virtuoso",
     personality = 5,
     head = "square", eyes = "cross", mouth = "zigzag", feat = "sparks",
-    intensity_range = {0.6, 0.95}, harmony_set = "chaos", harmony_chance = 0.06,
+    intensity_range = {0.6, 0.95}, harmony_set = "chaos", harmony_chance = 0.06, home_tendency = 0.01,
     style = {
       replace_one = 0.15, velocity_drift = 0.10, rotate = 0.15,
       thicken = 0.08, thin = 0.08, shift = 0.15,
@@ -50,7 +50,7 @@ robot.profiles = {
     name = "THUNDERCAT", desc = "jazzy dreamer",
     personality = 3,
     head = "pill", eyes = "round", mouth = "smile", feat = "ears",
-    intensity_range = {0.45, 0.8}, harmony_set = "jazz", harmony_chance = 0.05,
+    intensity_range = {0.45, 0.8}, harmony_set = "jazz", harmony_chance = 0.05, home_tendency = 0.02,
     style = {
       replace_one = 0.30, velocity_drift = 0.20, rotate = 0.05,
       thicken = 0.12, thin = 0.05, shift = 0.12,
@@ -76,7 +76,7 @@ robot.profiles = {
     name = "THOM YORKE", desc = "angular glitch poet",
     personality = 5,
     head = "diamond", eyes = "line", mouth = "flat", feat = "orbit",
-    intensity_range = {0.4, 0.85}, harmony_set = "world", harmony_chance = 0.04,
+    intensity_range = {0.4, 0.85}, harmony_set = "world", harmony_chance = 0.04, home_tendency = 0.015,
     style = {
       replace_one = 0.10, velocity_drift = 0.08, rotate = 0.20,
       thicken = 0.05, thin = 0.18, shift = 0.12,
@@ -104,7 +104,7 @@ robot.profiles = {
     name = "FLEA", desc = "explosive punk funk",
     personality = 4,
     head = "circle", eyes = "round", mouth = "zigzag", feat = "antenna",
-    intensity_range = {0.65, 0.95}, harmony_set = "minimal", harmony_chance = 0.02,
+    intensity_range = {0.65, 0.95}, harmony_set = "minimal", harmony_chance = 0.02, home_tendency = 0.03,
     style = {
       replace_one = 0.10, velocity_drift = 0.05, rotate = 0.08,
       thicken = 0.25, thin = 0.03, shift = 0.08,
@@ -128,7 +128,7 @@ robot.profiles = {
     name = "BOOTSY", desc = "space funk groove",
     personality = 2,
     head = "pill", eyes = "round", mouth = "smile", feat = "halo",
-    intensity_range = {0.35, 0.7}, harmony_set = "classical", harmony_chance = 0.03,
+    intensity_range = {0.35, 0.7}, harmony_set = "classical", harmony_chance = 0.03, home_tendency = 0.04,
     style = {
       replace_one = 0.08, velocity_drift = 0.30, rotate = 0.05,
       thicken = 0.05, thin = 0.05, shift = 0.05,
@@ -153,7 +153,7 @@ robot.profiles = {
     name = "HERMETO", desc = "total genius madman",
     personality = 5,
     head = "circle", eyes = "cross", mouth = "smile", feat = "sparks",
-    intensity_range = {0.7, 0.99}, harmony_set = "chaos", harmony_chance = 0.08,
+    intensity_range = {0.7, 0.99}, harmony_set = "chaos", harmony_chance = 0.08, home_tendency = 0.005,
     style = {
       replace_one = 0.15, velocity_drift = 0.08, rotate = 0.12,
       thicken = 0.10, thin = 0.10, shift = 0.12,
@@ -194,7 +194,7 @@ robot.profiles = {
     name = "DAFT PUNK", desc = "tight machine groove",
     personality = 2, -- zkit/acid (4/4 locked)
     head = "square", eyes = "line", mouth = "flat", feat = "antenna",
-    intensity_range = {0.3, 0.6}, harmony_set = "minimal", harmony_chance = 0.02,
+    intensity_range = {0.3, 0.6}, harmony_set = "minimal", harmony_chance = 0.02, home_tendency = 0.06,
     style = {
       -- heavy on ghost notes + velocity + note replacement. NO length changes.
       replace_one = 0.20, velocity_drift = 0.25, rotate = 0.02,
@@ -224,7 +224,7 @@ robot.profiles = {
     name = "KRAFTWERK", desc = "minimal machine",
     personality = 2, lock_16 = true, requantize = true,
     head = "square", eyes = "dot", mouth = "flat", feat = "antenna",
-    intensity_range = {0.1, 0.3}, harmony_set = "minimal", harmony_chance = 0.01,
+    intensity_range = {0.1, 0.3}, harmony_set = "minimal", harmony_chance = 0.01, home_tendency = 0.08,
     style = {
       replace_one = 0.15, velocity_drift = 0.10, rotate = 0.0,
       thicken = 0.02, thin = 0.05, shift = 0.03,
@@ -243,7 +243,7 @@ robot.profiles = {
     name = "MR FINGERS", desc = "deep house warmth",
     personality = 2, lock_16 = true, requantize = true,
     head = "circle", eyes = "round", mouth = "smile", feat = "halo",
-    intensity_range = {0.25, 0.55}, harmony_set = "classical", harmony_chance = 0.03,
+    intensity_range = {0.25, 0.55}, harmony_set = "classical", harmony_chance = 0.03, home_tendency = 0.05,
     style = {
       replace_one = 0.15, velocity_drift = 0.20, rotate = 0.03,
       thicken = 0.10, thin = 0.03, shift = 0.08,
@@ -268,7 +268,7 @@ robot.profiles = {
     name = "BURIAL", desc = "dark ghost step",
     personality = 4, lock_16 = true, requantize = true,
     head = "diamond", eyes = "dot", mouth = "none", feat = "drip",
-    intensity_range = {0.3, 0.65}, harmony_set = "world", harmony_chance = 0.03,
+    intensity_range = {0.3, 0.65}, harmony_set = "world", harmony_chance = 0.03, home_tendency = 0.03,
     style = {
       replace_one = 0.10, velocity_drift = 0.15, rotate = 0.05,
       thicken = 0.05, thin = 0.12, shift = 0.05,
@@ -291,7 +291,7 @@ robot.profiles = {
     name = "APHEX", desc = "precise IDM",
     personality = 3, lock_16 = true, requantize = true,
     head = "circle", eyes = "round", mouth = "smile", feat = "sparks",
-    intensity_range = {0.35, 0.7}, harmony_set = "jazz", harmony_chance = 0.05,
+    intensity_range = {0.35, 0.7}, harmony_set = "jazz", harmony_chance = 0.05, home_tendency = 0.025,
     style = {
       replace_one = 0.30, velocity_drift = 0.10, rotate = 0.08,
       thicken = 0.07, thin = 0.07, shift = 0.15,
@@ -317,7 +317,7 @@ robot.profiles = {
     name = "JEFF MILLS", desc = "minimal relentless",
     personality = 4, lock_16 = true, requantize = true,
     head = "square", eyes = "line", mouth = "flat", feat = "orbit",
-    intensity_range = {0.2, 0.5}, harmony_set = "minimal", harmony_chance = 0.01,
+    intensity_range = {0.2, 0.5}, harmony_set = "minimal", harmony_chance = 0.01, home_tendency = 0.07,
     style = {
       replace_one = 0.08, velocity_drift = 0.12, rotate = 0.05,
       thicken = 0.08, thin = 0.20, shift = 0.02,

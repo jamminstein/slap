@@ -750,6 +750,7 @@ local conductor_tick_count = 0
 
 function start_sequencer()
   playing = true
+  evo.save_home(tracks)  -- remember starting patterns for returns
 
   -- each track runs its own clock at its own division
   for t = 1, NUM_TRACKS do
