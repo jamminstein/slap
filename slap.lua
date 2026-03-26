@@ -305,13 +305,94 @@ function init()
       clock.sleep(1/15)
       apply_bezier_modulation()
       robot.update(1/15)
-      -- decay flashes
       param_flash = param_flash * 0.8
       for t = 1, NUM_TRACKS do
         for i = 1, MAX_STEPS do step_flash[t][i] = step_flash[t][i] * 0.7 end
       end
       redraw()
       grid_redraw()
+    end
+  end)
+
+  -- ======== MICRO-ASSISTANTS ========
+  -- three background processes running on their own clocks
+  -- they handle the params the conductors don't touch
+
+  -- LSD: alters perception — changes how things change
+  clock.run(function()
+    while true do
+      clock.sleep(2.5 + math.random() * 4) -- irregular: 2.5-6.5s
+      if not playing then goto lsd_skip end
+      local picks = {
+        {"bez_speed",   0.01, 3,    0.04},
+        {"bez_tension", 0.1,  1.5,  0.05},
+        {"xmod_speed",  0,    0.8,  0.04},
+        {"lfo_freq",    0.01, 8,    0.03},
+      }
+      local p = picks[math.random(#picks)]
+      if not evo.user_override_count or true then -- always runs
+        local ok, cur = pcall(function() return params:get(p[1]) end)
+        if ok then
+          local drift = (math.random() - 0.5) * (p[3] - p[2]) * p[4]
+          local target = util.clamp(cur + drift, p[2], p[3])
+          params:set(p[1], target)
+        end
+      end
+      ::lsd_skip::
+    end
+  end)
+
+  -- WATER: shapes the space — reverb, resonance, gates
+  clock.run(function()
+    while true do
+      clock.sleep(3 + math.random() * 5) -- 3-8s
+      if not playing then goto water_skip end
+      local picks = {
+        {"reverb_room",  0.2, 0.95, 0.03},
+        {"reverb_damp",  0.1, 0.9,  0.03},
+        {"t1_res",       0.05, 0.6, 0.02},
+        {"t2_res",       0.1, 0.9,  0.03},
+        {"t3_res",       0.05, 0.7, 0.02},
+        {"t4_res",       0.05, 0.5, 0.02},
+        {"t1_gate",      0.4, 1.0,  0.02},
+        {"t2_gate",      0.1, 0.8,  0.03},
+        {"t3_gate",      0.2, 0.9,  0.02},
+        {"t4_gate",      0.05, 0.4, 0.02},
+      }
+      -- touch 1-2 things per tick
+      for _ = 1, math.random(1, 2) do
+        local p = picks[math.random(#picks)]
+        local ok, cur = pcall(function() return params:get(p[1]) end)
+        if ok then
+          local drift = (math.random() - 0.5) * (p[3] - p[2]) * p[4]
+          params:set(p[1], util.clamp(cur + drift, p[2], p[3]))
+        end
+      end
+      ::water_skip::
+    end
+  end)
+
+  -- TURMERIC: warm color — brightness, spread, lfo depth, pwm, bits
+  clock.run(function()
+    while true do
+      clock.sleep(4 + math.random() * 6) -- 4-10s (slowest, most subtle)
+      if not playing then goto turmeric_skip end
+      local picks = {
+        {"t1_spread",     0.1, 0.8,  0.02},
+        {"t1_brightness", 0.2, 0.9,  0.02},
+        {"t3_lfoRate",    0.3, 12,   0.03},
+        {"t3_lfoDepth",   0.0, 0.5,  0.02},
+        {"t4_pwm",        0.1, 0.9,  0.03},
+        {"t4_bits",       6,   16,   0.04},
+        {"t3_fmamt",      0.0, 0.6,  0.02},
+      }
+      local p = picks[math.random(#picks)]
+      local ok, cur = pcall(function() return params:get(p[1]) end)
+      if ok then
+        local drift = (math.random() - 0.5) * (p[3] - p[2]) * p[4]
+        params:set(p[1], util.clamp(cur + drift, p[2], p[3]))
+      end
+      ::turmeric_skip::
     end
   end)
 end
