@@ -33,6 +33,51 @@ local MAX_STEPS = 24
 local TRACK_NAMES = {"MANTA", "ZKIT", "TOROID", "BZZT"}
 local TRACK_SHORT = {"MNT", "ZKT", "TRD", "BZT"}
 
+-- timbral presets: each reshapes all 4 voices at once
+local TIMBRES = {
+  {name = "BASS",    desc = "sub heavy",
+    t1 = {cutoff=1500, res=0.1, gate=0.9, spread=0.2, brightness=0.3},
+    t2 = {cutoff=800, res=0.7, gate=0.5, accent=0.9},
+    t3 = {cutoff=2000, res=0.2, gate=0.7, morph=0.1, fmamt=0.05},
+    t4 = {cutoff=3000, res=0.1, gate=0.1, engine_sel=0, pwm=0.5, bits=12}},
+  {name = "GLITCH",  desc = "broken digital",
+    t1 = {cutoff=6000, res=0.4, gate=0.3, spread=0.8, brightness=0.9},
+    t2 = {cutoff=3000, res=0.8, gate=0.15, accent=0.6},
+    t3 = {cutoff=8000, res=0.5, gate=0.2, morph=0.9, fmamt=0.7},
+    t4 = {cutoff=10000, res=0.3, gate=0.05, engine_sel=1, pwm=0.3, bits=6}},
+  {name = "CLASSIC", desc = "warm analog",
+    t1 = {cutoff=4000, res=0.15, gate=0.85, spread=0.4, brightness=0.5},
+    t2 = {cutoff=1200, res=0.5, gate=0.6, accent=0.5},
+    t3 = {cutoff=5000, res=0.25, gate=0.5, morph=0.3, fmamt=0.1},
+    t4 = {cutoff=6000, res=0.15, gate=0.15, engine_sel=0, pwm=0.5, bits=14}},
+  {name = "DARK",    desc = "low and murky",
+    t1 = {cutoff=800, res=0.2, gate=0.95, spread=0.6, brightness=0.15},
+    t2 = {cutoff=300, res=0.6, gate=0.7, accent=0.3},
+    t3 = {cutoff=1500, res=0.3, gate=0.8, morph=0.5, fmamt=0.2},
+    t4 = {cutoff=2000, res=0.2, gate=0.2, engine_sel=3, pwm=0.5, bits=10}},
+  {name = "BRIGHT",  desc = "crystalline",
+    t1 = {cutoff=10000, res=0.1, gate=0.7, spread=0.9, brightness=0.95},
+    t2 = {cutoff=5000, res=0.3, gate=0.3, accent=0.7},
+    t3 = {cutoff=12000, res=0.15, gate=0.4, morph=0.7, fmamt=0.4},
+    t4 = {cutoff=12000, res=0.1, gate=0.08, engine_sel=2, pwm=0.5, bits=16}},
+  {name = "ACID",    desc = "squelch madness",
+    t1 = {cutoff=2000, res=0.3, gate=0.6, spread=0.3, brightness=0.4},
+    t2 = {cutoff=600, res=0.9, gate=0.3, accent=1.0},
+    t3 = {cutoff=3000, res=0.6, gate=0.4, morph=0.4, fmamt=0.3},
+    t4 = {cutoff=5000, res=0.4, gate=0.1, engine_sel=0, pwm=0.3, bits=10}},
+  {name = "SPACE",   desc = "vast and distant",
+    t1 = {cutoff=3000, res=0.1, gate=0.95, spread=0.8, brightness=0.6},
+    t2 = {cutoff=1000, res=0.3, gate=0.8, accent=0.4},
+    t3 = {cutoff=4000, res=0.2, gate=0.7, morph=0.6, fmamt=0.15},
+    t4 = {cutoff=4000, res=0.1, gate=0.25, engine_sel=3, pwm=0.5, bits=12}},
+  {name = "PERC",    desc = "all rhythm",
+    t1 = {cutoff=5000, res=0.2, gate=0.15, spread=0.1, brightness=0.7},
+    t2 = {cutoff=2000, res=0.5, gate=0.1, accent=0.8},
+    t3 = {cutoff=7000, res=0.3, gate=0.1, morph=0.8, fmamt=0.5},
+    t4 = {cutoff=8000, res=0.2, gate=0.05, engine_sel=0, pwm=0.5, bits=8}},
+}
+local current_timbre = 0  -- 0 = none active
+
 local SCALE_NAMES = {"minor pentatonic", "major pentatonic", "dorian", "natural minor",
                      "major", "phrygian", "mixolydian", "chromatic"}
 local SCALE_SHORT = {"mPn", "MPn", "Dor", "Min", "Maj", "Phr", "Mix", "Chr"}
@@ -217,6 +262,33 @@ function send_track_params(i)
     engine.set_param(3, "engine_sel", t.engine_sel or 0)
     engine.set_param(3, "pwm", t.pwm or 0.5)
     engine.set_param(3, "bits", t.bits or 10)
+  end
+end
+
+local function apply_timbre(idx)
+  local t = TIMBRES[idx]
+  if not t then return end
+  current_timbre = idx
+  local mappings = {t.t1, t.t2, t.t3, t.t4}
+  for i = 1, 4 do
+    local m = mappings[i]
+    local pre = "t" .. i .. "_"
+    for k, v in pairs(m) do
+      local param_name = pre .. k
+      local ok = pcall(function() params:set(param_name, k == "engine_sel" and v + 1 or v) end)
+      if not ok then
+        -- direct set for non-param fields
+        if tracks[i] then tracks[i][k] = v end
+      end
+    end
+    send_track_params(i)
+  end
+  -- space preset gets extra reverb
+  if t.name == "SPACE" then
+    params:set("reverb_mix", 0.5)
+    params:set("reverb_room", 0.9)
+  elseif t.name == "PERC" then
+    params:set("reverb_mix", 0.15)
   end
 end
 
@@ -792,8 +864,10 @@ function key(n, z)
           end
           flash("RANDOM")
         elseif current_page == 2 then
-          selected_track = (selected_track % NUM_TRACKS) + 1
-          flash(TRACK_NAMES[selected_track])
+          -- cycle timbral presets
+          current_timbre = (current_timbre % #TIMBRES) + 1
+          apply_timbre(current_timbre)
+          flash(TIMBRES[current_timbre].name)
         elseif current_page == 3 then
           selected_track = (selected_track % NUM_TRACKS) + 1
           flash(TRACK_NAMES[selected_track])
@@ -1011,9 +1085,13 @@ local function draw_voice_page()
   screen.move(64, 24); screen.text_center(TRACK_NAMES[selected_track])
   screen.font_size(8)
 
-  -- scale display
+  -- scale + timbre display
   screen.level(6); screen.move(2, 33)
   screen.text(musicutil.note_num_to_name(root_note, true) .. " " .. SCALE_SHORT[scale_type])
+  if current_timbre > 0 then
+    screen.level(10); screen.move(90, 24)
+    screen.text(TIMBRES[current_timbre].name)
+  end
 
   -- division display
   screen.move(90, 33); screen.text(DIVISIONS[t.division][1])
