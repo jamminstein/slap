@@ -810,74 +810,119 @@ end
 local function draw_mod_page()
   draw_header("MIX")
 
-  -- 4 vertical faders side by side
-  local fader_w = 24
-  local fader_h = 40
-  local gap = 6
-  local start_x = 4
+  -- studio wall: 4 channel strips + master
+  local ch_w = 22
+  local ch_h = 46
+  local gap = 4
+  local start_x = 2
+  local y_top = 11
 
   for t = 1, 4 do
-    local x = start_x + (t-1) * (fader_w + gap)
-    local y = 12
+    local x = start_x + (t-1) * (ch_w + gap)
     local is_sel = (t == selected_track)
     local level = tracks[t].level
-    local fill_h = math.floor(level * fader_h)
+    local fill_h = math.floor(level * ch_h)
 
-    -- fader track (outline)
-    screen.level(is_sel and 6 or 2)
-    screen.rect(x, y, fader_w, fader_h)
-    screen.stroke()
-
-    -- fader fill (from bottom)
-    screen.level(is_sel and 12 or 5)
-    screen.rect(x + 1, y + fader_h - fill_h, fader_w - 2, fill_h)
+    -- channel strip background
+    screen.level(1)
+    screen.rect(x, y_top, ch_w, ch_h)
     screen.fill()
 
-    -- live activity: cutoff as a bouncing line across the fader
-    local cut_norm = math.log(math.max(tracks[t].cutoff, 30) / 30) / math.log(12000 / 30)
-    local cut_y = y + fader_h - math.floor(cut_norm * fader_h)
-    screen.level(is_sel and 15 or 8)
-    screen.move(x + 2, cut_y)
-    screen.line(x + fader_w - 2, cut_y)
+    -- fader groove (center line)
+    screen.level(3)
+    screen.move(x + ch_w/2, y_top + 2)
+    screen.line(x + ch_w/2, y_top + ch_h - 2)
     screen.stroke()
 
-    -- mod pulse: flickering brightness on the fader
+    -- fader fill (from bottom, graduated brightness)
+    for row = 0, fill_h - 1 do
+      local fy = y_top + ch_h - 1 - row
+      local grad = math.floor(3 + (row / ch_h) * 9)
+      if is_sel then grad = grad + 3 end
+      screen.level(math.min(grad, 15))
+      screen.rect(x + 3, fy, ch_w - 6, 1)
+      screen.fill()
+    end
+
+    -- fader knob position (bright line)
+    local knob_y = y_top + ch_h - fill_h
+    screen.level(is_sel and 15 or 10)
+    screen.rect(x + 1, knob_y - 1, ch_w - 2, 3)
+    screen.fill()
+
+    -- VU meter: cutoff as activity indicator (right edge)
+    local cut_norm = math.log(math.max(tracks[t].cutoff, 30) / 30) / math.log(12000 / 30)
+    local vu_h = math.floor(cut_norm * (ch_h - 4))
+    for row = 0, vu_h - 1 do
+      local vy = y_top + ch_h - 3 - row
+      local vu_bright = row > (ch_h * 0.7) and 15 or (row > (ch_h * 0.5) and 10 or 6)
+      screen.level(vu_bright)
+      screen.rect(x + ch_w - 2, vy, 1, 1)
+      screen.fill()
+    end
+
+    -- mod activity shimmer (left edge)
     local total_mod = 0
     for i, route in ipairs(MOD_ROUTES) do
       if route.track == t and mod_amounts[i] > 0.01 then
         total_mod = total_mod + math.abs(mod_values[i] or 0)
       end
     end
-    if total_mod > 0.05 then
-      screen.level(math.floor(total_mod * 10))
-      screen.rect(x + 1, cut_y - 2, fader_w - 2, 4)
-      screen.fill()
+    if total_mod > 0.03 then
+      local mod_h = math.floor(total_mod * ch_h * 0.8)
+      for row = 0, mod_h - 1 do
+        if math.random() < 0.6 then
+          screen.level(math.floor(4 + total_mod * 8))
+          screen.rect(x + 1, y_top + ch_h - 3 - row, 1, 1)
+          screen.fill()
+        end
+      end
     end
 
-    -- track name below
+    -- track name
     screen.level(is_sel and 15 or 6)
-    screen.move(x + fader_w / 2, y + fader_h + 8)
+    screen.move(x + ch_w/2, y_top + ch_h + 7)
     screen.text_center(TRACK_SHORT[t])
-
-    -- step count tiny
-    screen.level(3)
-    screen.move(x + fader_w / 2, y + fader_h + 14)
-    screen.text_center(tostring(tracks[t].num_steps))
   end
 
-  -- master reverb bar (right side)
-  local rx = 120
+  -- master strip (reverb)
+  local mx = start_x + 4 * (ch_w + gap)
   local rev = params:get("reverb_mix")
-  local rev_h = math.floor(rev * fader_h)
-  screen.level(3)
-  screen.rect(rx, 12, 6, fader_h)
-  screen.stroke()
-  screen.level(8)
-  screen.rect(rx + 1, 12 + fader_h - rev_h, 4, rev_h)
+  local rev_h = math.floor(rev * ch_h)
+
+  screen.level(1)
+  screen.rect(mx, y_top, 18, ch_h)
   screen.fill()
-  screen.level(5)
-  screen.move(rx + 3, 12 + fader_h + 8)
-  screen.text_center("R")
+
+  -- master fader groove
+  screen.level(3)
+  screen.move(mx + 9, y_top + 2)
+  screen.line(mx + 9, y_top + ch_h - 2)
+  screen.stroke()
+
+  -- master fill
+  for row = 0, rev_h - 1 do
+    local fy = y_top + ch_h - 1 - row
+    screen.level(math.floor(3 + (row / ch_h) * 8))
+    screen.rect(mx + 4, fy, 10, 1)
+    screen.fill()
+  end
+
+  -- master knob
+  local mk_y = y_top + ch_h - rev_h
+  screen.level(12)
+  screen.rect(mx + 2, mk_y - 1, 14, 3)
+  screen.fill()
+
+  -- master label
+  screen.level(8)
+  screen.move(mx + 9, y_top + ch_h + 7)
+  screen.text_center("REV")
+
+  -- reverb room/damp indicators (tiny)
+  screen.level(4)
+  screen.move(mx, y_top + ch_h + 13)
+  screen.text(string.format("%.0f", params:get("reverb_room") * 100))
 end
 
 -- ---- PAGE 4: MOD ----

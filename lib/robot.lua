@@ -35,6 +35,13 @@ robot.profiles = {
       {param="t2_accent", weight=0.7, range={0.2, 1},     mode="jump"},
       {param="t1_spread", weight=0.5, range={0, 1},       mode="drift"},
       {param="reverb_mix",weight=0.3, range={0.1, 0.6},   mode="drift"},
+      -- bezier route depths: conductor picks these up after user lets go
+      {param="mod_1",     weight=0.4, range={0, 0.8},     mode="jump"},
+      {param="mod_2",     weight=0.5, range={0, 0.8},     mode="jump"},
+      {param="mod_3",     weight=0.4, range={0, 0.7},     mode="jump"},
+      {param="mod_4",     weight=0.5, range={0, 0.6},     mode="drift"},
+      {param="mod_5",     weight=0.3, range={0, 0.7},     mode="jump"},
+      {param="mod_6",     weight=0.3, range={0, 0.5},     mode="drift"},
     },
   },
   -- THUNDERCAT: jazzy, complex harmonies, dreamy, virtuosic
@@ -58,6 +65,9 @@ robot.profiles = {
       {param="t2_cutoff", weight=0.4, range={300, 3000},    mode="drift"},
       {param="reverb_mix",weight=0.6, range={0.2, 0.5},     mode="drift"},
       {param="t3_lfoDepth",weight=0.4,range={0, 0.4},       mode="drift"},
+      {param="mod_1",     weight=0.3, range={0, 0.5},     mode="drift"},
+      {param="mod_3",     weight=0.4, range={0, 0.6},     mode="drift"},
+      {param="mod_4",     weight=0.5, range={0, 0.5},     mode="drift"},
     },
   },
   -- THOM YORKE: angular, glitchy, emotional, sudden silences
@@ -82,6 +92,10 @@ robot.profiles = {
       {param="t3_gate",   weight=0.4, range={0.2, 0.9},    mode="jump"},
       {param="reverb_mix",weight=0.7, range={0.1, 0.7},    mode="drift"},
       {param="t3_morph",  weight=0.4, range={0.1, 0.9},    mode="jump"},
+      {param="mod_1",     weight=0.3, range={0, 0.7},     mode="jump"},
+      {param="mod_2",     weight=0.3, range={0, 0.6},     mode="jump"},
+      {param="mod_3",     weight=0.4, range={0, 0.8},     mode="jump"},
+      {param="mod_5",     weight=0.2, range={0, 0.5},     mode="jump"},
     },
   },
   -- FLEA: punk energy, explosive, slap bass, high density
@@ -104,6 +118,8 @@ robot.profiles = {
       {param="t2_gate",   weight=0.5, range={0.15, 0.6},   mode="jump"},
       {param="t1_cutoff", weight=0.4, range={2000, 8000},  mode="drift"},
       {param="reverb_mix",weight=0.2, range={0.05, 0.3},   mode="drift"},
+      {param="mod_2",     weight=0.3, range={0, 0.5},     mode="jump"},
+      {param="mod_5",     weight=0.4, range={0, 0.6},     mode="jump"},
     },
   },
   -- BOOTSY COLLINS: the ONE, deep pocket, space funk, groove master
@@ -126,6 +142,9 @@ robot.profiles = {
       {param="reverb_mix",weight=0.6, range={0.2, 0.5},    mode="drift"},
       {param="t3_cutoff", weight=0.3, range={2000, 6000},  mode="drift"},
       {param="t4_cutoff", weight=0.4, range={3000, 8000},  mode="drift"},
+      {param="mod_1",     weight=0.2, range={0, 0.4},     mode="drift"},
+      {param="mod_2",     weight=0.3, range={0, 0.4},     mode="drift"},
+      {param="mod_4",     weight=0.2, range={0, 0.3},     mode="drift"},
     },
   },
   -- HERMETO PASCOAL: complete madman genius, uses everything
@@ -159,6 +178,13 @@ robot.profiles = {
       {param="t3_gate",      weight=0.4, range={0.2, 0.9},   mode="drift"},
       {param="t4_gate",      weight=0.4, range={0.05, 0.4},  mode="jump"},
       {param="reverb_mix",   weight=0.5, range={0.05, 0.6},  mode="jump"},
+      -- hermeto rides ALL mod routes
+      {param="mod_1",        weight=0.5, range={0, 0.9},     mode="jump"},
+      {param="mod_2",        weight=0.5, range={0, 0.9},     mode="jump"},
+      {param="mod_3",        weight=0.5, range={0, 0.8},     mode="jump"},
+      {param="mod_4",        weight=0.6, range={0, 0.7},     mode="jump"},
+      {param="mod_5",        weight=0.4, range={0, 0.8},     mode="jump"},
+      {param="mod_6",        weight=0.4, range={0, 0.6},     mode="jump"},
     },
   },
 }
