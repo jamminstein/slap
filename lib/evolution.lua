@@ -316,6 +316,33 @@ function evo.conductor_tick(tracks, energy, conductor_profile)
     end
   end
 
+  -- ======== TRACK PROBABILITY RIDING ========
+  -- creates dropouts and sparse moments
+  if math.random() < 0.15 * intensity then
+    local t_idx = math.random(1, 4)
+    local prob_param = "t" .. t_idx .. "_probability"
+    if not is_user_owned(prob_param) then
+      local ok, cur = pcall(function() return params:get(prob_param) end)
+      if ok then
+        -- drift toward a target based on intensity
+        -- low intensity = sparse (probability drops), high = full
+        local target
+        if lock_16 then
+          -- locked conductors: keep it 60-100%
+          target = 60 + energy * 40
+        else
+          -- loose conductors: can go very sparse
+          target = 20 + energy * 70
+        end
+        -- add randomness so it's not predictable
+        target = target + (math.random() - 0.5) * 30
+        target = util.clamp(target, 10, 100)
+        local new_val = cur + (target - cur) * 0.1
+        params:set(prob_param, util.clamp(new_val, 10, 100))
+      end
+    end
+  end
+
   -- ======== HARMONIC MOVES ========
   -- occasional key/scale changes based on conductor's harmony_set
   local harm_set = conductor_profile and conductor_profile.harmony_set
