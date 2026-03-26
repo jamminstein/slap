@@ -187,6 +187,37 @@ robot.profiles = {
       {param="mod_6",        weight=0.4, range={0, 0.6},     mode="jump"},
     },
   },
+  -- DAFT PUNK: the machine. ultra tight 4/4, locked lengths,
+  -- ghost notes for groove, pitch variety for interest, no chaos.
+  -- the opposite of HERMETO: disciplined, repetitive, hypnotic.
+  {
+    name = "DAFT PUNK", desc = "tight machine groove",
+    personality = 2, -- zkit/acid (4/4 locked)
+    head = "square", eyes = "line", mouth = "flat", feat = "antenna",
+    intensity_range = {0.3, 0.6},
+    style = {
+      -- heavy on ghost notes + velocity + note replacement. NO length changes.
+      replace_one = 0.20, velocity_drift = 0.25, rotate = 0.02,
+      thicken = 0.08, thin = 0.02, shift = 0.08,
+      extend = 0.0, truncate = 0.0, accent = 0.15, ghost = 0.20,
+    },
+    knobs = {
+      -- tight filter movements, nothing wild
+      {param="t2_cutoff", weight=0.6, range={400, 4000},   mode="drift"},
+      {param="t2_accent", weight=0.5, range={0.4, 0.9},    mode="drift"},
+      {param="t2_res",    weight=0.4, range={0.4, 0.8},    mode="drift"},
+      {param="t4_cutoff", weight=0.5, range={4000, 10000}, mode="drift"},
+      {param="t3_cutoff", weight=0.4, range={2000, 7000},  mode="drift"},
+      {param="t1_cutoff", weight=0.3, range={2000, 6000},  mode="drift"},
+      {param="t3_morph",  weight=0.3, range={0.2, 0.6},    mode="drift"},
+      {param="reverb_mix",weight=0.2, range={0.1, 0.3},    mode="drift"},
+      -- subtle mod routing
+      {param="mod_2",     weight=0.3, range={0, 0.3},      mode="drift"},
+      {param="mod_5",     weight=0.2, range={0, 0.2},      mode="drift"},
+    },
+    -- special flag: forces all tracks to 16 steps
+    lock_16 = true,
+  },
 }
 
 robot.NAMES = {}

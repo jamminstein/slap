@@ -228,18 +228,23 @@ function evo.conductor_tick(tracks, energy, conductor_profile)
   local intensity = ir[1] + (ir[2] - ir[1]) * energy
 
   local sc = tracks._scale_notes or {}
+  local lock_16 = conductor_profile and conductor_profile.lock_16
+
+  -- lock_16: force all tracks to 16 steps every tick
+  if lock_16 then
+    for ti = 1, 4 do
+      if tracks[ti] then tracks[ti].num_steps = 16 end
+    end
+  end
 
   -- the maestro can touch MULTIPLE things per tick at high intensity
-  -- base: 1 action. at high intensity: up to 3.
   local num_actions = 1
   if math.random() < intensity then num_actions = num_actions + 1 end
   if math.random() < intensity * 0.5 then num_actions = num_actions + 1 end
 
   for _ = 1, num_actions do
-    -- roll: should this hand act?
     if math.random() > intensity then goto continue end
 
-    -- pick a random track
     local track_idx = math.random(1, 4)
 
     -- pick action from this conductor's style weights
@@ -252,6 +257,11 @@ function evo.conductor_tick(tracks, energy, conductor_profile)
         action = name
         break
       end
+    end
+
+    -- lock_16: skip length changes, re-roll as ghost/replace
+    if lock_16 and (action == "extend" or action == "truncate") then
+      action = math.random() < 0.5 and "ghost" or "replace_one"
     end
 
     -- build musical args
