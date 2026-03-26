@@ -186,36 +186,48 @@ function init_tracks()
     end
   end
 
-  -- MANTA: 12-step pads, 1/8 division
+  -- MANTA: 12-step pads, 1/8 division — euclidean E(4,12)
   local m = tracks[1]
-  m.num_steps = 12; m.division = 3; m.probability = 70
+  m.num_steps = 12; m.division = 3; m.probability = 85
   m.cutoff = 2000; m.res = 0.15; m.gate = 0.8
   m.spread = 0.3; m.brightness = 0.4
-  local m_pat = {{1,50,0.5},{4,57,0.45},{7,53,0.5},{10,55,0.4}}
-  for _, p in ipairs(m_pat) do m.steps[p[1]] = {on=true, note=p[2], vel=p[3], prob=100} end
+  local m_euc = harmony.euclidean(12, 4, 0)
+  local m_notes = {50, 53, 55, 57, 50, 55, 53, 50, 57, 55, 50, 53}
+  for s = 1, 12 do
+    m.steps[s] = {on = m_euc[s] or false, note = m_notes[s], vel = 0.4 + math.random() * 0.25, prob = 100}
+  end
 
-  -- ZKIT: 16-step acid bass, 1/16 division (starts moderate)
+  -- ZKIT: 16-step acid bass, 1/16 division — euclidean E(6,16)
   local z = tracks[2]
-  z.num_steps = 16; z.division = 2; z.probability = 60
+  z.num_steps = 16; z.division = 2; z.probability = 80
   z.cutoff = 400; z.res = 0.6; z.gate = 0.4; z.accent = 0.7
-  local z_pat = {{1,38,1.0},{5,38,0.7},{9,45,0.9},{13,43,0.6}}
-  for _, p in ipairs(z_pat) do z.steps[p[1]] = {on=true, note=p[2], vel=p[3], prob=100} end
+  local z_euc = harmony.euclidean(16, 6, 0)
+  local z_notes = {38, 38, 45, 38, 43, 38, 45, 43, 38, 38, 45, 38, 43, 38, 45, 38}
+  for s = 1, 16 do
+    z.steps[s] = {on = z_euc[s] or false, note = z_notes[s], vel = z_euc[s] and (0.6 + math.random() * 0.35) or 0.5, prob = 100}
+  end
 
-  -- TOROID: 14-step melody, 1/16 division (starts sparse)
+  -- TOROID: 14-step melody, 1/16 division — euclidean E(5,14)
   local t = tracks[3]
-  t.num_steps = 14; t.division = 2; t.probability = 50
+  t.num_steps = 14; t.division = 2; t.probability = 70
   t.cutoff = 2500; t.res = 0.25; t.gate = 0.5
   t.morph = 0.35; t.fmamt = 0.25; t.lfoRate = 3; t.lfoDepth = 0.15
-  local t_pat = {{1,62,0.7},{5,74,0.8},{9,65,0.6},{13,60,0.5}}
-  for _, p in ipairs(t_pat) do t.steps[p[1]] = {on=true, note=p[2], vel=p[3], prob=100} end
+  local t_euc = harmony.euclidean(14, 5, 2)
+  local t_notes = {62, 60, 65, 62, 67, 65, 60, 62, 67, 65, 62, 60, 65, 67}
+  for s = 1, 14 do
+    t.steps[s] = {on = t_euc[s] or false, note = t_notes[s], vel = t_euc[s] and (0.5 + math.random() * 0.35) or 0.5, prob = 100}
+  end
 
-  -- BZZT: 10-step percussion, 1/32 division (starts moderate)
+  -- BZZT: 10-step percussion, 1/32 division — euclidean E(4,10)
   local b = tracks[4]
-  b.num_steps = 10; b.division = 1; b.probability = 55
+  b.num_steps = 10; b.division = 1; b.probability = 75
   b.cutoff = 7000; b.res = 0.15; b.gate = 0.15
   b.engine_sel = 0; b.pwm = 0.5; b.bits = 10
-  local b_pat = {{1,36,1.0},{5,36,0.7},{9,84,0.5}}
-  for _, p in ipairs(b_pat) do b.steps[p[1]] = {on=true, note=p[2], vel=p[3], prob=100} end
+  local b_euc = harmony.euclidean(10, 4, 1)
+  local b_notes = {48, 60, 55, 48, 67, 60, 48, 55, 67, 60}
+  for s = 1, 10 do
+    b.steps[s] = {on = b_euc[s] or false, note = b_notes[s], vel = b_euc[s] and (0.6 + math.random() * 0.35) or 0.5, prob = 100}
+  end
 
   tracks._scale_notes = scale_notes
 end
@@ -424,26 +436,52 @@ function init_params()
   params:add_option("robot_profile", "robot", robot.NAMES, 1)
   params:set_action("robot_profile", function(v)
     robot_profile = v
+    local prof = robot.profiles[v]
+    if not prof then return end
+
+    -- apply default mod routes
+    if prof.default_mods then
+      for i, amt in ipairs(prof.default_mods) do
+        if i <= #MOD_ROUTES then
+          mod_amounts[i] = amt
+          pcall(function() params:set("mod_" .. i, amt) end)
+        end
+      end
+    end
+
+    -- apply default timbre
+    if prof.default_timbre and prof.default_timbre > 0 and prof.default_timbre <= #TIMBRES then
+      current_timbre = prof.default_timbre
+      apply_timbre(current_timbre)
+    end
+
+    -- apply default clock divisions
+    if prof.default_divisions then
+      for i, div in ipairs(prof.default_divisions) do
+        if tracks[i] then
+          tracks[i].division = div
+          pcall(function() params:set("t" .. i .. "_division", div) end)
+        end
+      end
+    end
+
     -- regenerate patterns when switching conductor
-    -- each conductor brings a fresh arrangement
     local sc = tracks._scale_notes or scale_notes
     if #sc > 0 and playing then
       if prof.lock_16 then
         -- locked conductors: structured euclidean patterns, high density
-        local pulses = {3, 5, 4, 4}  -- sparse pad, moderate bass, melody, perc
+        local pulses = {3, 5, 4, 4}
         for t = 1, NUM_TRACKS do
-          local ns = tracks[t].num_steps
+          tracks[t].num_steps = 16
           local p = pulses[t] or 4
-          local euc = harmony.euclidean(ns, p, math.random(0, ns - 1))
-          local fp = sc
-          for s = 1, ns do
+          local euc = harmony.euclidean(16, p, math.random(0, 15))
+          for s = 1, 16 do
             tracks[t].steps[s].on = euc[s] or false
-            if tracks[t].steps[s].on and #fp > 0 then
-              tracks[t].steps[s].note = fp[math.random(#fp)]
+            if tracks[t].steps[s].on and #sc > 0 then
+              tracks[t].steps[s].note = sc[math.random(#sc)]
               tracks[t].steps[s].vel = 0.6 + math.random() * 0.3
             end
           end
-          -- locked conductors: high probability
           tracks[t].probability = 90 + math.random(0, 10)
           pcall(function() params:set("t" .. t .. "_probability", tracks[t].probability) end)
         end
@@ -456,32 +494,8 @@ function init_params()
       end
       evo.save_home(tracks)
     end
-    local prof = robot.profiles[v]
-    if prof then
-      -- apply default mod routes
-      if prof.default_mods then
-        for i, amt in ipairs(prof.default_mods) do
-          if i <= #MOD_ROUTES then
-            mod_amounts[i] = amt
-            pcall(function() params:set("mod_" .. i, amt) end)
-          end
-        end
-      end
-      -- apply default timbre
-      if prof.default_timbre and prof.default_timbre > 0 and prof.default_timbre <= #TIMBRES then
-        current_timbre = prof.default_timbre
-        apply_timbre(current_timbre)
-      end
-      -- apply default clock divisions
-      if prof.default_divisions then
-        for i, div in ipairs(prof.default_divisions) do
-          if tracks[i] then
-            tracks[i].division = div
-            pcall(function() params:set("t" .. i .. "_division", div) end)
-          end
-        end
-      end
-    end
+
+    -- restart explorer with new personality
     if explorer_on then
       stop_explorer()
       start_explorer()
@@ -642,10 +656,12 @@ function init()
         {"xmod_speed",0,0.8,0.04},{"lfo_freq",0.01,8,0.03},
       }
       local p = picks[math.random(#picks)]
-      local ok, cur = pcall(function() return params:get(p[1]) end)
-      if ok then
-        local drift = (math.random()-0.5) * (p[3]-p[2]) * p[4] * inten * 2
-        params:set(p[1], util.clamp(cur+drift, p[2], p[3]))
+      if not evo.user_owned_check(p[1]) then
+        local ok, cur = pcall(function() return params:get(p[1]) end)
+        if ok then
+          local drift = (math.random()-0.5) * (p[3]-p[2]) * p[4] * inten * 2
+          params:set(p[1], util.clamp(cur+drift, p[2], p[3]))
+        end
       end
       assistant_activity[1] = 1
       ::lsd_skip::
@@ -677,10 +693,12 @@ function init()
       end
       for _ = 1, math.random(1,2) do
         local p = picks[math.random(#picks)]
-        local ok, cur = pcall(function() return params:get(p[1]) end)
-        if ok then
-          local drift = (math.random()-0.5) * (p[3]-p[2]) * p[4] * inten * 2
-          params:set(p[1], util.clamp(cur+drift, p[2], p[3]))
+        if not evo.user_owned_check(p[1]) then
+          local ok, cur = pcall(function() return params:get(p[1]) end)
+          if ok then
+            local drift = (math.random()-0.5) * (p[3]-p[2]) * p[4] * inten * 2
+            params:set(p[1], util.clamp(cur+drift, p[2], p[3]))
+          end
         end
       end
       -- arrangement breathing: drop 1-2 tracks to low probability
@@ -743,10 +761,12 @@ function init()
         {"t3_fmamt",0.0,0.4,0.02},{"t3_morph",0.1,0.7,0.02},
       }
       local p = picks[math.random(#picks)]
-      local ok, cur = pcall(function() return params:get(p[1]) end)
-      if ok then
-        local drift = (math.random()-0.5) * (p[3]-p[2]) * p[4] * inten * 2
-        params:set(p[1], util.clamp(cur+drift, p[2], p[3]))
+      if not evo.user_owned_check(p[1]) then
+        local ok, cur = pcall(function() return params:get(p[1]) end)
+        if ok then
+          local drift = (math.random()-0.5) * (p[3]-p[2]) * p[4] * inten * 2
+          params:set(p[1], util.clamp(cur+drift, p[2], p[3]))
+        end
       end
       assistant_activity[3] = 1
       ::turmeric_skip::
