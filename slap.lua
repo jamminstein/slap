@@ -484,18 +484,20 @@ function enc(n, d)
 
   elseif current_page == 4 then -- MOD
     if k3_held then
+      -- ALT: E2=bez tension, E3=lfo freq
       if n == 2 then user_delta("bez_tension", d * 0.03)
       elseif n == 3 then
         local f = params:get("lfo_freq")
         user_set("lfo_freq", util.clamp(f * (1 + d * 0.05), 0.01, 10))
       end
     else
+      -- E2=select route, E3=route depth (the power knob)
       if n == 2 then
-        local spd = params:get("bez_speed")
-        user_set("bez_speed", util.clamp(spd * (1 + d * 0.05), 0.01, 3))
-      elseif n == 3 then
         selected_route = util.clamp(selected_route + d, 1, #MOD_ROUTES)
         flash(MOD_ROUTES[selected_route].name)
+      elseif n == 3 then
+        user_delta("mod_" .. selected_route, d * 0.03)
+        flash(string.format("%.0f%%", mod_amounts[selected_route] * 100))
       end
     end
 
