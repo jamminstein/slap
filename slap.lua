@@ -89,19 +89,17 @@ local DIVISIONS = {
 
 -- bezier modulation routing targets
 local MOD_ROUTES = {
-  {name = "MNT.cut", param = "t1_cutoff", sc_param = "cutoff", track = 1, base_mult = 0.25},
-  {name = "MNT.spd", param = "t1_spread", sc_param = "spread", track = 1, base_mult = 0.4},
-  {name = "MNT.brt", param = "t1_brightness", sc_param = "brightness", track = 1, base_mult = 0.3},
-  {name = "ZKT.cut", param = "t2_cutoff", sc_param = "cutoff", track = 2, base_mult = 0.25},
-  {name = "ZKT.acc", param = "t2_accent", sc_param = "accent", track = 2, base_mult = 0.3},
-  {name = "TRD.cut", param = "t3_cutoff", sc_param = "cutoff", track = 3, base_mult = 0.25},
-  {name = "TRD.mrp", param = "t3_morph",  sc_param = "morph",  track = 3, base_mult = 0.3},
-  {name = "TRD.fm",  param = "t3_fmamt",  sc_param = "fmamt",  track = 3, base_mult = 0.3},
-  {name = "BZT.cut", param = "t4_cutoff", sc_param = "cutoff", track = 4, base_mult = 0.25},
-  {name = "BZT.pwm", param = "t4_pwm",    sc_param = "pwm",    track = 4, base_mult = 0.3},
+  {name = "MNT.cut", param = "t1_cutoff", sc_param = "cutoff", track = 1, base_mult = 0.15},
+  {name = "MNT.spd", param = "t1_spread", sc_param = "spread", track = 1, base_mult = 0.2},
+  {name = "ZKT.cut", param = "t2_cutoff", sc_param = "cutoff", track = 2, base_mult = 0.15},
+  {name = "ZKT.acc", param = "t2_accent", sc_param = "accent", track = 2, base_mult = 0.2},
+  {name = "TRD.cut", param = "t3_cutoff", sc_param = "cutoff", track = 3, base_mult = 0.15},
+  {name = "TRD.mrp", param = "t3_morph",  sc_param = "morph",  track = 3, base_mult = 0.2},
+  {name = "BZT.cut", param = "t4_cutoff", sc_param = "cutoff", track = 4, base_mult = 0.15},
+  {name = "BZT.pwm", param = "t4_pwm",    sc_param = "pwm",    track = 4, base_mult = 0.2},
 }
-local mod_amounts = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-local mod_values = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+local mod_amounts = {0, 0, 0, 0, 0, 0, 0, 0}
+local mod_values = {0, 0, 0, 0, 0, 0, 0, 0}
 local selected_route = 1
 
 -- ======== STATE ========
@@ -188,25 +186,25 @@ function init_tracks()
     end
   end
 
-  -- MANTA: 12-step, 1/16 division (can be rhythmic too!)
+  -- MANTA: 12-step pads, 1/8 division
   local m = tracks[1]
-  m.num_steps = 12; m.division = 2; m.probability = 70
-  m.cutoff = 3500; m.res = 0.15; m.gate = 0.5
-  m.spread = 0.4; m.brightness = 0.6
+  m.num_steps = 12; m.division = 3; m.probability = 70
+  m.cutoff = 2000; m.res = 0.15; m.gate = 0.8
+  m.spread = 0.3; m.brightness = 0.4
   local m_pat = {{1,50,0.5},{4,57,0.45},{7,53,0.5},{10,55,0.4}}
   for _, p in ipairs(m_pat) do m.steps[p[1]] = {on=true, note=p[2], vel=p[3], prob=100} end
 
   -- ZKIT: 16-step acid bass, 1/16 division (starts moderate)
   local z = tracks[2]
   z.num_steps = 16; z.division = 2; z.probability = 60
-  z.cutoff = 500; z.res = 0.75; z.gate = 0.45; z.accent = 0.85
+  z.cutoff = 400; z.res = 0.6; z.gate = 0.4; z.accent = 0.7
   local z_pat = {{1,38,1.0},{5,38,0.7},{9,45,0.9},{13,43,0.6}}
   for _, p in ipairs(z_pat) do z.steps[p[1]] = {on=true, note=p[2], vel=p[3], prob=100} end
 
   -- TOROID: 14-step melody, 1/16 division (starts sparse)
   local t = tracks[3]
   t.num_steps = 14; t.division = 2; t.probability = 50
-  t.cutoff = 4500; t.res = 0.3; t.gate = 0.55
+  t.cutoff = 2500; t.res = 0.25; t.gate = 0.5
   t.morph = 0.35; t.fmamt = 0.25; t.lfoRate = 3; t.lfoDepth = 0.15
   local t_pat = {{1,62,0.7},{5,74,0.8},{9,65,0.6},{13,60,0.5}}
   for _, p in ipairs(t_pat) do t.steps[p[1]] = {on=true, note=p[2], vel=p[3], prob=100} end
@@ -736,13 +734,13 @@ function init()
       if not playing or assistant_intensity[3] < 0.01 then goto turmeric_skip end
       local inten = assistant_intensity[3]
       local picks = {
-        {"t1_spread",0.1,0.9,0.03},{"t1_brightness",0.1,0.95,0.03},
-        {"t1_gate",0.1,0.95,0.04},  -- MANTA gate: pad ↔ rhythmic
-        {"t2_gate",0.1,0.8,0.03},   -- ZKIT gate: staccato ↔ legato
-        {"t3_gate",0.1,0.9,0.03},   -- TOROID gate: pluck ↔ sustain
-        {"t3_lfoRate",0.3,15,0.04},{"t3_lfoDepth",0.0,0.6,0.03},
-        {"t4_pwm",0.05,0.95,0.04},{"t4_bits",4,16,0.05},
-        {"t3_fmamt",0.0,0.7,0.03},{"t3_morph",0.0,1.0,0.03},
+        {"t1_spread",0.15,0.6,0.02},{"t1_brightness",0.2,0.7,0.02},
+        {"t1_gate",0.4,0.9,0.02},   -- MANTA gate: gentle range
+        {"t2_gate",0.2,0.6,0.02},   -- ZKIT gate
+        {"t3_gate",0.3,0.7,0.02},   -- TOROID gate
+        {"t3_lfoRate",0.5,8,0.02},{"t3_lfoDepth",0.0,0.3,0.02},
+        {"t4_pwm",0.15,0.85,0.02},{"t4_bits",8,16,0.02},
+        {"t3_fmamt",0.0,0.4,0.02},{"t3_morph",0.1,0.7,0.02},
       }
       local p = picks[math.random(#picks)]
       local ok, cur = pcall(function() return params:get(p[1]) end)
@@ -766,18 +764,16 @@ function apply_bezier_modulation()
   local b4 = bez.get_raw("curve4")
   local b5 = bez.get_raw("curve5")
   local lfo_val = bez.get_raw("lfo")
-  -- 10 sources for 10 routes: each route gets a unique curve blend
+  -- 8 sources for 8 routes
   local sources = {
-    b4,                        -- MNT.cut: tectonic sweeps
-    b1 * 0.7 + b5 * 0.3,      -- MNT.spd: slow drift + fast shimmer (spectral alive)
-    b3 + lfo_val * 0.3,       -- MNT.brt: fast + lfo (brightness breathes)
-    b1,                        -- ZKT.cut: dramatic slow filter
-    b2 + b5 * 0.4,            -- ZKT.acc: medium + fast twitch (accent pulses)
-    b2,                        -- TRD.cut: expressive medium
-    b3 + lfo_val * 0.5,       -- TRD.mrp: fast morph (always alive)
-    b4 * 0.6 + b3 * 0.4,      -- TRD.fm: slow+fast blend (FM depth evolves)
-    b5,                        -- BZT.cut: fastest (twitchy percussion)
-    (b4 + b1) * 0.5,          -- BZT.pwm: slow blend (PWM drones)
+    b4,                        -- MNT.cut: slow sweeps
+    b1,                        -- MNT.spd: gentle spectral drift
+    b1,                        -- ZKT.cut: slow filter
+    b2,                        -- ZKT.acc: medium accent
+    b2,                        -- TRD.cut: medium filter
+    b3 + lfo_val * 0.3,       -- TRD.mrp: morph (alive)
+    b5,                        -- BZT.cut: fast
+    (b4 + b2) * 0.5,          -- BZT.pwm: blended
   }
 
   for i, route in ipairs(MOD_ROUTES) do
