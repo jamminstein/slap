@@ -557,12 +557,14 @@ function init()
         {"t1_level",0.3,1.0,0.03},{"t2_level",0.3,1.0,0.03},
         {"t3_level",0.3,1.0,0.03},{"t4_level",0.2,1.0,0.03},
       }
-      -- drift pan from current position, not random jump
+      -- drift pan from current position (respects user override)
       local pt = math.random(1, 4)
-      local cur_pan = tracks[pt].pan or 0
-      local pan_drift = (math.random() - 0.5) * inten * 0.15
-      tracks[pt].pan = util.clamp(cur_pan + pan_drift, -0.8, 0.8)
-      engine.set_param(pt - 1, "pan", tracks[pt].pan)
+      if not evo.user_owned_check("pan_" .. pt) then
+        local cur_pan = tracks[pt].pan or 0
+        local pan_drift = (math.random() - 0.5) * inten * 0.15
+        tracks[pt].pan = util.clamp(cur_pan + pan_drift, -0.8, 0.8)
+        engine.set_param(pt - 1, "pan", tracks[pt].pan)
+      end
       for _ = 1, math.random(1,2) do
         local p = picks[math.random(#picks)]
         local ok, cur = pcall(function() return params:get(p[1]) end)
@@ -797,15 +799,18 @@ function enc(n, d)
 
   elseif current_page == 3 then -- MIX
     if k3_held then
-      -- ALT: E2=comp threshold, E3=comp makeup
+      -- ALT: E2=pan, E3=swing
       if n == 2 then
-        local cur = params:get("comp_thresh")
-        user_set("comp_thresh", util.clamp(cur * (1 + d * 0.05), 0.05, 1))
-        flash("thr:" .. string.format("%.0f%%", params:get("comp_thresh") * 100))
+        local t = tracks[selected_track]
+        t.pan = util.clamp((t.pan or 0) + d * 0.05, -1, 1)
+        engine.set_param(selected_track - 1, "pan", t.pan)
+        evo.user_touched("pan_" .. selected_track)
+        local side = t.pan < -0.1 and "L" or (t.pan > 0.1 and "R" or "C")
+        flash(TRACK_SHORT[selected_track] .. " " .. side .. string.format("%.0f", math.abs(t.pan) * 100))
       elseif n == 3 then
-        local cur = params:get("comp_makeup")
-        user_set("comp_makeup", util.clamp(cur + d * 0.1, 0.5, 4))
-        flash("mkup:" .. string.format("%.1f", params:get("comp_makeup")))
+        swing_amount = util.clamp(swing_amount + d * 2, 0, 80)
+        params:set("swing", swing_amount)
+        flash("sw:" .. swing_amount)
       end
     else
       -- E2=track level, E3=reverb mix

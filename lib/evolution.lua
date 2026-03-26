@@ -28,6 +28,10 @@ local function is_user_owned(param_name)
   return true
 end
 
+function evo.user_owned_check(param_name)
+  return is_user_owned(param_name)
+end
+
 function evo.user_override_count()
   local count = 0
   local now = os.clock()
