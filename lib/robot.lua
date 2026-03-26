@@ -204,16 +204,17 @@ robot.profiles = {
   -- the opposite of HERMETO: disciplined, repetitive, hypnotic.
   {
     name = "DAFT PUNK", desc = "tight machine groove",
-    personality = 2, -- zkit/acid (4/4 locked)
+    personality = 2,
     head = "square", eyes = "line", mouth = "flat", feat = "antenna",
-    intensity_range = {0.3, 0.6}, harmony_set = "minimal", harmony_chance = 0.02, home_tendency = 0.06,
+    intensity_range = {0.15, 0.35}, harmony_set = "minimal", harmony_chance = 0.01, home_tendency = 0.10,
     default_timbre = 3, default_divisions = {2,2,2,2},
-    default_mods = {0.15, 0.35, 0.2, 0.1, 0.2, 0.05},
+    default_mods = {0.1, 0.25, 0.15, 0.05, 0.15, 0.05},
     style = {
-      -- heavy on ghost notes + velocity + note replacement. NO length changes.
-      replace_one = 0.20, velocity_drift = 0.25, rotate = 0.02,
-      thicken = 0.08, thin = 0.02, shift = 0.08,
-      extend = 0.0, truncate = 0.0, accent = 0.15, ghost = 0.20,
+      -- mostly ghost notes + velocity. very little pattern change.
+      replace_one = 0.08, velocity_drift = 0.25, rotate = 0.0,
+      thicken = 0.03, thin = 0.02, shift = 0.02,
+      extend = 0.0, truncate = 0.0, accent = 0.15, ghost = 0.35,
+      crescendo = 0.05, decrescendo = 0.05,
     },
     knobs = {
       -- tight filter movements, nothing wild
@@ -238,7 +239,7 @@ robot.profiles = {
     name = "KRAFTWERK", desc = "minimal machine",
     personality = 2, lock_16 = true, requantize = true,
     head = "square", eyes = "dot", mouth = "flat", feat = "antenna",
-    intensity_range = {0.1, 0.3}, harmony_set = "minimal", harmony_chance = 0.01, home_tendency = 0.08,
+    intensity_range = {0.05, 0.2}, harmony_set = "minimal", harmony_chance = 0.005, home_tendency = 0.12,
     default_timbre = 3, default_divisions = {3,2,2,2},
     default_mods = {0.1, 0.15, 0.1, 0.05, 0.1, 0.05},
     style = {

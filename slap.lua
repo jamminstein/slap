@@ -424,9 +424,31 @@ function init_params()
     -- each conductor brings a fresh arrangement
     local sc = tracks._scale_notes or scale_notes
     if #sc > 0 and playing then
-      for t = 1, NUM_TRACKS do
-        local density = 0.2 + math.random() * 0.3
-        evo.generate_pattern(tracks, t, sc, density, 0.3, 0.9)
+      if prof.lock_16 then
+        -- locked conductors: structured euclidean patterns, high density
+        local pulses = {3, 5, 4, 4}  -- sparse pad, moderate bass, melody, perc
+        for t = 1, NUM_TRACKS do
+          local ns = tracks[t].num_steps
+          local p = pulses[t] or 4
+          local euc = harmony.euclidean(ns, p, math.random(0, ns - 1))
+          local fp = sc
+          for s = 1, ns do
+            tracks[t].steps[s].on = euc[s] or false
+            if tracks[t].steps[s].on and #fp > 0 then
+              tracks[t].steps[s].note = fp[math.random(#fp)]
+              tracks[t].steps[s].vel = 0.6 + math.random() * 0.3
+            end
+          end
+          -- locked conductors: high probability
+          tracks[t].probability = 90 + math.random(0, 10)
+          pcall(function() params:set("t" .. t .. "_probability", tracks[t].probability) end)
+        end
+      else
+        -- loose conductors: random sparse patterns
+        for t = 1, NUM_TRACKS do
+          local density = 0.2 + math.random() * 0.3
+          evo.generate_pattern(tracks, t, sc, density, 0.3, 0.9)
+        end
       end
       evo.save_home(tracks)
     end
