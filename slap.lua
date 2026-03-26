@@ -492,6 +492,14 @@ function init()
   midi_out_device = midi.connect(1)
 
   for i = 1, NUM_TRACKS do send_track_params(i) end
+
+  -- default stereo spread
+  local default_pan = {-0.5, 0.3, -0.2, 0.5}
+  for i = 1, 4 do
+    tracks[i].pan = default_pan[i]
+    engine.set_param(i - 1, "pan", default_pan[i])
+  end
+
   params:set("clock_tempo", 110)
 
   g.key = grid_key
@@ -549,8 +557,12 @@ function init()
         {"t1_level",0.3,1.0,0.03},{"t2_level",0.3,1.0,0.03},
         {"t3_level",0.3,1.0,0.03},{"t4_level",0.2,1.0,0.03},
       }
-      engine.set_param(math.random(0,3), "pan",
-        util.clamp((math.random()-0.5)*inten*1.6, -0.8, 0.8))
+      -- drift pan from current position, not random jump
+      local pt = math.random(1, 4)
+      local cur_pan = tracks[pt].pan or 0
+      local pan_drift = (math.random() - 0.5) * inten * 0.15
+      tracks[pt].pan = util.clamp(cur_pan + pan_drift, -0.8, 0.8)
+      engine.set_param(pt - 1, "pan", tracks[pt].pan)
       for _ = 1, math.random(1,2) do
         local p = picks[math.random(#picks)]
         local ok, cur = pcall(function() return params:get(p[1]) end)
@@ -1175,6 +1187,14 @@ local function draw_mix_page()
 
     screen.level(is_sel and 15 or 6)
     screen.move(x+ch_w/2, y_top+ch_h+7); screen.text_center(TRACK_SHORT[t])
+
+    -- pan indicator (dot on horizontal line)
+    local pan_val = tracks[t].pan or 0
+    local pan_x = x + ch_w/2 + pan_val * (ch_w/2 - 2)
+    screen.level(7)
+    screen.move(x+2, y_top+ch_h+10); screen.line(x+ch_w-2, y_top+ch_h+10); screen.stroke()
+    screen.level(is_sel and 15 or 10)
+    screen.rect(pan_x-1, y_top+ch_h+9, 3, 3); screen.fill()
   end
 
   -- reverb
