@@ -359,6 +359,10 @@ function init()
         {"t3_gate",      0.2, 0.9,  0.02},
         {"t4_gate",      0.05, 0.4, 0.02},
       }
+      -- also drift the stereo field
+      local pan_track = math.random(1, 4)
+      local pan_drift = (math.random() - 0.5) * 0.3
+      engine.set_param(pan_track - 1, "pan", util.clamp(pan_drift, -0.8, 0.8))
       -- touch 1-2 things per tick
       for _ = 1, math.random(1, 2) do
         local p = picks[math.random(#picks)]
