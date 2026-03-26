@@ -322,7 +322,14 @@ function init_params()
   -- explorer
   params:add_separator("AUTONOMOUS")
   params:add_option("robot_profile", "robot", robot.NAMES, 1)
-  params:set_action("robot_profile", function(v) robot_profile = v end)
+  params:set_action("robot_profile", function(v)
+    robot_profile = v
+    -- restart explorer with new personality if running
+    if explorer_on then
+      stop_explorer()
+      start_explorer()
+    end
+  end)
 
   -- per-track params
   for i = 1, NUM_TRACKS do
