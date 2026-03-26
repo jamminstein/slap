@@ -26,7 +26,7 @@ local robot = include("lib/robot")
 
 local PAGES = {"SEQ", "VOICE", "MOD", "AUTO"}
 local NUM_TRACKS = 4
-local NUM_STEPS = 16
+local MAX_STEPS = 24
 local TRACK_NAMES = {"MANTA", "ZKIT", "TOROID", "BZZT"}
 local TRACK_SHORT = {"MNT", "ZKT", "TRD", "BZT"}
 
@@ -48,7 +48,6 @@ local current_page = 1
 local playing = false
 local selected_track = 1
 local selected_step = 1
-local position = 0
 local k3_held = false
 local k3_press_time = 0
 local seq_clock = nil
@@ -68,10 +67,13 @@ local g = grid.connect()
 local held_steps = {}
 
 -- visual feedback
-local param_flash = 0       -- encoder turn flash
-local param_flash_name = ""  -- what changed
-local step_flash = {}        -- per-step trigger flash
-for i = 1, NUM_STEPS do step_flash[i] = 0 end
+local param_flash = 0
+local param_flash_name = ""
+local step_flash = {}  -- per-track, per-step trigger flash
+for t = 1, NUM_TRACKS do
+  step_flash[t] = {}
+  for i = 1, MAX_STEPS do step_flash[t][i] = 0 end
+end
 
 -- ======== SCALE ========
 
@@ -86,38 +88,44 @@ function init_tracks()
   for i = 1, NUM_TRACKS do
     tracks[i] = {
       steps = {},
+      num_steps = 16,  -- default, overridden below
+      position = 0,    -- per-track playhead
       cutoff = 2000, res = 0.3, gate = 0.7, level = 1.0,
     }
-    for s = 1, NUM_STEPS do
+    for s = 1, MAX_STEPS do
       tracks[i].steps[s] = {on = false, note = 60, vel = 0.8}
     end
   end
 
-  -- MANTA: sustained spectral pads
+  -- MANTA: 12-step pads (3/4 against 4/4)
   local m = tracks[1]
+  m.num_steps = 12
   m.cutoff = 3500; m.res = 0.15; m.gate = 0.95
   m.spread = 0.4; m.brightness = 0.6
-  local m_pat = {{1,50,0.5},{5,57,0.45},{9,53,0.5},{13,55,0.4}}
+  local m_pat = {{1,50,0.5},{4,57,0.45},{7,53,0.5},{10,55,0.4}}
   for _, p in ipairs(m_pat) do m.steps[p[1]] = {on=true, note=p[2], vel=p[3]} end
 
-  -- ZKIT: acid bassline
+  -- ZKIT: 16-step acid bass (standard 4/4)
   local z = tracks[2]
+  z.num_steps = 16
   z.cutoff = 500; z.res = 0.75; z.gate = 0.45; z.accent = 0.85
   local z_pat = {{1,38,1.0},{4,38,0.7},{6,41,0.9},{8,43,0.6},{9,45,1.0},{12,45,0.5},{14,43,0.8},{16,41,0.6}}
   for _, p in ipairs(z_pat) do z.steps[p[1]] = {on=true, note=p[2], vel=p[3]} end
 
-  -- TOROID: melodic arpeggio
+  -- TOROID: 14-step melody (7/8 feel)
   local t = tracks[3]
+  t.num_steps = 14
   t.cutoff = 4500; t.res = 0.3; t.gate = 0.55
   t.morph = 0.35; t.fmamt = 0.25; t.lfoRate = 3; t.lfoDepth = 0.15
-  local t_pat = {{1,62,0.7},{2,65,0.6},{3,69,0.7},{5,74,0.8},{7,69,0.6},{9,65,0.7},{11,62,0.5},{13,60,0.6},{15,62,0.7}}
+  local t_pat = {{1,62,0.7},{2,65,0.6},{3,69,0.7},{5,74,0.8},{7,69,0.6},{9,65,0.7},{11,62,0.5},{13,60,0.6},{14,62,0.5}}
   for _, p in ipairs(t_pat) do t.steps[p[1]] = {on=true, note=p[2], vel=p[3]} end
 
-  -- BZZT: percussive hits
+  -- BZZT: 10-step percussion (5/8 feel)
   local b = tracks[4]
+  b.num_steps = 10
   b.cutoff = 7000; b.res = 0.15; b.gate = 0.15
   b.engine_sel = 0; b.pwm = 0.5; b.bits = 10
-  local b_pat = {{1,36,1.0},{3,84,0.5},{5,36,0.8},{7,84,0.45},{9,36,1.0},{10,60,0.3},{11,84,0.55},{13,36,0.7},{15,84,0.6},{16,60,0.25}}
+  local b_pat = {{1,36,1.0},{3,84,0.5},{5,36,0.8},{7,84,0.45},{9,36,1.0},{10,60,0.3}}
   for _, p in ipairs(b_pat) do b.steps[p[1]] = {on=true, note=p[2], vel=p[3]} end
 
   tracks._scale_notes = scale_notes
@@ -298,7 +306,9 @@ function init()
       robot.update(1/15)
       -- decay flashes
       param_flash = param_flash * 0.8
-      for i = 1, NUM_STEPS do step_flash[i] = step_flash[i] * 0.7 end
+      for t = 1, NUM_TRACKS do
+        for i = 1, MAX_STEPS do step_flash[t][i] = step_flash[t][i] * 0.7 end
+      end
       redraw()
       grid_redraw()
     end
@@ -328,13 +338,13 @@ end
 
 function trigger_note(track_idx)
   local t = tracks[track_idx]
-  local step = t.steps[position]
-  if step.on then
+  local step = t.steps[t.position]
+  if step and step.on then
     local freq = musicutil.note_num_to_freq(step.note)
     local amp = step.vel * t.level
     send_track_params(track_idx)
     engine.note_on(track_idx - 1, freq, amp)
-    step_flash[position] = 1
+    step_flash[track_idx][t.position] = 1
     clock.run(function()
       clock.sleep(clock.get_beat_sec() * t.gate * 0.25)
       engine.note_off(track_idx - 1)
@@ -342,14 +352,26 @@ function trigger_note(track_idx)
   end
 end
 
+local conductor_tick_count = 0
+
 function start_sequencer()
   playing = true
   seq_clock = clock.run(function()
     while playing do
       clock.sync(1/4)
-      position = (position % NUM_STEPS) + 1
       robot.beat()
-      for t = 1, NUM_TRACKS do trigger_note(t) end
+      -- each track advances independently through its own length
+      for t = 1, NUM_TRACKS do
+        tracks[t].position = (tracks[t].position % tracks[t].num_steps) + 1
+        trigger_note(t)
+      end
+      -- conductor: the maestro touches something every few ticks
+      conductor_tick_count = conductor_tick_count + 1
+      if conductor_tick_count % 4 == 0 then  -- every bar
+        local energy = explorer_on and song_engine.get_energy() or 0.3
+        local intensity = explorer_on and (0.2 + energy * 0.4) or 0.1
+        evo.conductor_tick(tracks, energy, intensity)
+      end
     end
   end)
 end
@@ -358,7 +380,8 @@ function stop_sequencer()
   playing = false
   if seq_clock then clock.cancel(seq_clock); seq_clock = nil end
   for i = 0, 3 do engine.note_off(i) end
-  position = 0
+  for t = 1, NUM_TRACKS do tracks[t].position = 0 end
+  conductor_tick_count = 0
 end
 
 -- ======== EXPLORER ========
@@ -391,6 +414,7 @@ function enc(n, d)
     if k3_held then
       if n == 2 then
         selected_track = util.clamp(selected_track + d, 1, NUM_TRACKS)
+        selected_step = util.clamp(selected_step, 1, tracks[selected_track].num_steps)
         flash(TRACK_NAMES[selected_track])
       elseif n == 3 then
         local step = tracks[selected_track].steps[selected_step]
@@ -399,7 +423,7 @@ function enc(n, d)
       end
     else
       if n == 2 then
-        selected_step = util.clamp(selected_step + d, 1, NUM_STEPS)
+        selected_step = util.clamp(selected_step + d, 1, tracks[selected_track].num_steps)
       elseif n == 3 then
         local step = tracks[selected_track].steps[selected_step]
         step.note = util.clamp(step.note + d, 24, 96)
@@ -522,11 +546,11 @@ end
 
 function grid_key(x, y, z)
   if y >= 1 and y <= 4 then
-    if z == 1 then
+    if z == 1 and x <= tracks[y].num_steps then
       tracks[y].steps[x].on = not tracks[y].steps[x].on
       selected_track = y; selected_step = x
       held_steps[y..","..x] = true
-    else
+    elseif z == 0 then
       held_steps[y..","..x] = nil
     end
   elseif y >= 5 and y <= 8 and z == 1 then
@@ -554,12 +578,16 @@ end
 function grid_redraw()
   g:all(0)
   for t = 1, 4 do
-    for s = 1, NUM_STEPS do
-      local step = tracks[t].steps[s]
+    local ns = tracks[t].num_steps
+    local tpos = tracks[t].position
+    for s = 1, 16 do
       local br = 0
-      if step.on then br = 5 end
-      if s == position and playing then br = step.on and 15 or 4 end
-      if t == selected_track and s == selected_step then br = math.max(br, 8) end
+      if s <= ns then
+        local step = tracks[t].steps[s]
+        if step.on then br = 5 end
+        if s == tpos and playing then br = step.on and 15 or 4 end
+        if t == selected_track and s == selected_step then br = math.max(br, 8) end
+      end
       g:led(s, t, br)
     end
   end
@@ -605,15 +633,17 @@ local function draw_step_bar()
     end
     return
   end
-  for i = 1, NUM_STEPS do
-    local x = 2 + (i-1) * 7.8
-    local step = tracks[selected_track].steps[i]
-    local fl = step_flash[i]
-    if i == position then screen.level(15)
+  local st = tracks[selected_track]
+  for i = 1, st.num_steps do
+    local x = 2 + (i-1) * (122 / st.num_steps)
+    local step = st.steps[i]
+    local w = math.max(2, math.floor(122 / st.num_steps) - 1)
+    local fl = step_flash[selected_track][i] or 0
+    if i == st.position and playing then screen.level(15)
     elseif fl > 0.2 then screen.level(math.floor(4 + fl * 8))
     elseif step.on then screen.level(4)
     else screen.level(1) end
-    screen.rect(x, 60, 6, 3)
+    screen.rect(x, 60, w, 3)
     screen.fill()
   end
 end
@@ -624,53 +654,64 @@ local function draw_seq_page()
   -- header uses track name instead of "SEQ"
   draw_header(TRACK_NAMES[selected_track])
 
-  -- full 4-track step display (12px per row)
+  -- full 4-track step display (12px per row), polymetric
   for t = 1, NUM_TRACKS do
     local y0 = 10 + (t-1) * 12
     local is_sel = (t == selected_track)
+    local ns = tracks[t].num_steps
+    local tpos = tracks[t].position
 
-    for s = 1, NUM_STEPS do
+    -- show track length indicator
+    screen.level(is_sel and 6 or 2)
+    screen.move(ns * 8, y0); screen.line(ns * 8, y0 + 10); screen.stroke()
+
+    for s = 1, 16 do
       local x = (s-1) * 8
       local stp = tracks[t].steps[s]
-      local is_play = (s == position and playing)
+      local in_range = (s <= ns)
+      local is_play = (s == tpos and playing and in_range)
       local is_cur = (is_sel and s == selected_step)
+      local fl = step_flash[t][s] or 0
 
-      -- velocity-scaled height
-      local max_h = 10
-      local h = stp.on and math.max(3, math.floor(stp.vel * max_h)) or max_h
-      local y_off = max_h - h
-
-      local lvl
-      if is_play and stp.on then lvl = 15
-      elseif is_play then lvl = is_sel and 7 or 4
-      elseif stp.on then lvl = is_sel and 10 or 5
-      else lvl = is_sel and 3 or 1 end
-
-      screen.level(lvl)
-      if stp.on or is_play then
-        screen.rect(x + 1, y0 + y_off, 6, h)
-        screen.fill()
+      if not in_range then
+        -- beyond track length: invisible
       else
-        screen.rect(x + 1, y0, 6, max_h)
-        screen.stroke()
+        local max_h = 10
+        local h = stp.on and math.max(3, math.floor(stp.vel * max_h)) or max_h
+        local y_off = max_h - h
+
+        local lvl
+        if is_play and stp.on then lvl = 15
+        elseif is_play then lvl = is_sel and 7 or 4
+        elseif fl > 0.2 then lvl = math.floor(5 + fl * 8)
+        elseif stp.on then lvl = is_sel and 10 or 5
+        else lvl = is_sel and 3 or 1 end
+
+        screen.level(lvl)
+        if stp.on or is_play then
+          screen.rect(x + 1, y0 + y_off, 6, h)
+          screen.fill()
+        else
+          screen.rect(x + 1, y0, 6, max_h)
+          screen.stroke()
+        end
       end
 
-      -- cursor
-      if is_cur then
+      if is_cur and in_range then
         screen.level(15)
-        screen.rect(x + 2, y0 + max_h + 1, 4, 1)
+        screen.rect(x + 2, y0 + 11, 4, 1)
         screen.fill()
       end
     end
   end
 
-  -- info bar at bottom
+  -- info bar
   local step = tracks[selected_track].steps[selected_step]
   local nn = musicutil.note_num_to_name(step.note, true)
   screen.level(10); screen.move(0, 63)
-  screen.text(TRACK_SHORT[selected_track] .. " " .. selected_step .. ":" .. nn)
+  screen.text(TRACK_SHORT[selected_track] .. " " .. selected_step .. "/" .. tracks[selected_track].num_steps .. ":" .. nn)
   if step.on then
-    screen.level(6); screen.move(56, 63)
+    screen.level(6); screen.move(68, 63)
     screen.text("v" .. string.format("%.0f", step.vel * 100))
   end
   screen.level(playing and 15 or 3); screen.move(124, 63); screen.text_right(playing and ">" or "||")
