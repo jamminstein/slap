@@ -368,9 +368,49 @@ function evo.conductor_tick(tracks, energy, conductor_profile)
     end
   end
 
+  -- ======== ARRANGEMENT INTELLIGENCE ========
+  -- call and response: keep total density in check
+  -- count active steps across all tracks
+  local total_active = 0
+  local track_density = {}
+  for ti = 1, 4 do
+    local count = 0
+    local ns = tracks[ti].num_steps or 16
+    for s = 1, ns do
+      if tracks[ti].steps[s] and tracks[ti].steps[s].on then count = count + 1 end
+    end
+    track_density[ti] = count / ns
+    total_active = total_active + count
+  end
+
+  -- if total density is too high, thin the densest track
+  local max_total = lock_16 and 32 or 24  -- locked allows more density
+  if total_active > max_total then
+    -- find densest track
+    local densest = 1
+    for ti = 2, 4 do
+      if track_density[ti] > track_density[densest] then densest = ti end
+    end
+    evo.pattern_mutate(tracks, densest, "thin", {count = 2})
+    evo.pattern_mutate(tracks, densest, "ghost")
+  end
+
+  -- call and response: if one track is very dense, thin another
+  for ti = 1, 4 do
+    if track_density[ti] > 0.75 then
+      -- find a different track to thin
+      local other = ((ti - 1 + math.random(1, 3)) % 4) + 1
+      if track_density[other] > 0.3 then
+        if math.random() < 0.3 then
+          evo.pattern_mutate(tracks, other, "thin")
+        end
+      end
+    end
+  end
+
   -- the maestro can touch MULTIPLE things per tick at high intensity
+  -- but limit to 1-2 (was up to 3, too chaotic)
   local num_actions = 1
-  if math.random() < intensity then num_actions = num_actions + 1 end
   if math.random() < intensity * 0.5 then num_actions = num_actions + 1 end
 
   for _ = 1, num_actions do

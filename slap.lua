@@ -184,35 +184,35 @@ function init_tracks()
     end
   end
 
-  -- MANTA: 12-step pads, 1/8 division (starts at 80% probability)
+  -- MANTA: 12-step pads, 1/8 division (starts sparse)
   local m = tracks[1]
-  m.num_steps = 12; m.division = 3; m.probability = 80
+  m.num_steps = 12; m.division = 3; m.probability = 70
   m.cutoff = 3500; m.res = 0.15; m.gate = 0.95
   m.spread = 0.4; m.brightness = 0.6
   local m_pat = {{1,50,0.5},{4,57,0.45},{7,53,0.5},{10,55,0.4}}
   for _, p in ipairs(m_pat) do m.steps[p[1]] = {on=true, note=p[2], vel=p[3], prob=100} end
 
-  -- ZKIT: 16-step acid bass, 1/16 division (starts at 70%)
+  -- ZKIT: 16-step acid bass, 1/16 division (starts moderate)
   local z = tracks[2]
-  z.num_steps = 16; z.division = 2; z.probability = 70
+  z.num_steps = 16; z.division = 2; z.probability = 60
   z.cutoff = 500; z.res = 0.75; z.gate = 0.45; z.accent = 0.85
-  local z_pat = {{1,38,1.0},{4,38,0.7},{6,41,0.9},{8,43,0.6},{9,45,1.0},{12,45,0.5},{14,43,0.8},{16,41,0.6}}
+  local z_pat = {{1,38,1.0},{5,38,0.7},{9,45,0.9},{13,43,0.6}}
   for _, p in ipairs(z_pat) do z.steps[p[1]] = {on=true, note=p[2], vel=p[3], prob=100} end
 
-  -- TOROID: 14-step melody, 1/16 division (starts at 65%)
+  -- TOROID: 14-step melody, 1/16 division (starts sparse)
   local t = tracks[3]
-  t.num_steps = 14; t.division = 2; t.probability = 65
+  t.num_steps = 14; t.division = 2; t.probability = 50
   t.cutoff = 4500; t.res = 0.3; t.gate = 0.55
   t.morph = 0.35; t.fmamt = 0.25; t.lfoRate = 3; t.lfoDepth = 0.15
-  local t_pat = {{1,62,0.7},{2,65,0.6},{3,69,0.7},{5,74,0.8},{7,69,0.6},{9,65,0.7},{11,62,0.5},{13,60,0.6},{14,62,0.5}}
+  local t_pat = {{1,62,0.7},{5,74,0.8},{9,65,0.6},{13,60,0.5}}
   for _, p in ipairs(t_pat) do t.steps[p[1]] = {on=true, note=p[2], vel=p[3], prob=100} end
 
-  -- BZZT: 10-step percussion, 1/32 division (starts at 75%)
+  -- BZZT: 10-step percussion, 1/32 division (starts moderate)
   local b = tracks[4]
-  b.num_steps = 10; b.division = 1; b.probability = 75
+  b.num_steps = 10; b.division = 1; b.probability = 55
   b.cutoff = 7000; b.res = 0.15; b.gate = 0.15
   b.engine_sel = 0; b.pwm = 0.5; b.bits = 10
-  local b_pat = {{1,36,1.0},{3,84,0.5},{5,36,0.8},{7,84,0.45},{9,36,1.0},{10,60,0.3}}
+  local b_pat = {{1,36,1.0},{5,36,0.7},{9,84,0.5}}
   for _, p in ipairs(b_pat) do b.steps[p[1]] = {on=true, note=p[2], vel=p[3], prob=100} end
 
   tracks._scale_notes = scale_notes
@@ -994,8 +994,8 @@ function enc(n, d)
     else
       if n == 2 then
         robot_profile = util.clamp(robot_profile + d, 1, #robot.profiles)
+        -- param action handles explorer restart, don't do it twice
         params:set("robot_profile", robot_profile)
-        if explorer_on then stop_explorer(); start_explorer() end
         flash(robot.profiles[robot_profile].name)
       elseif n == 3 then
         -- conductor intensity multiplier
@@ -1040,6 +1040,7 @@ function key(n, z)
           flash(TIMBRES[current_timbre].name)
         elseif current_page == 3 then
           selected_track = (selected_track % NUM_TRACKS) + 1
+          selected_step = util.clamp(selected_step, 1, tracks[selected_track].num_steps)
           flash(TRACK_NAMES[selected_track])
         elseif current_page == 4 then
           bez.randomize()
@@ -1445,10 +1446,8 @@ end
 local function draw_auto_page()
   draw_header("AUTO")
 
-  -- sync robot_profile with params in case they diverged
-  robot_profile = params:get("robot_profile")
   local p = robot.profiles[robot_profile]
-  if not p then robot_profile = 1; p = robot.profiles[1] end
+  if not p then p = robot.profiles[1] end
   local energy = explorer_on and song_engine.get_energy() or 0.3
 
   robot.draw(robot_profile, 22, 36, energy, explorer_on)
