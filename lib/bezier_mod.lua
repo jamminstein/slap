@@ -115,12 +115,17 @@ function bezier_mod.init()
     curve5 = new_generator(1.2, 0.3, -1, 1),     -- very fast, subtle
     lfo = new_lfo(0.3, 0.47),
   }
-  -- default cross-modulation: curves influence each other from the start
-  bezier_mod.generators.curve1.xmod_speed = 0.15
-  bezier_mod.generators.curve2.xmod_speed = 0.2
-  bezier_mod.generators.curve3.xmod_speed = 0.1
-  bezier_mod.generators.curve4.xmod_tension = 0.3
-  bezier_mod.generators.curve5.xmod_range = 0.2
+  -- aggressive cross-modulation from the start
+  bezier_mod.generators.curve1.xmod_speed = 0.3
+  bezier_mod.generators.curve1.xmod_tension = 0.15
+  bezier_mod.generators.curve2.xmod_speed = 0.35
+  bezier_mod.generators.curve2.xmod_range = 0.2
+  bezier_mod.generators.curve3.xmod_speed = 0.25
+  bezier_mod.generators.curve3.xmod_tension = 0.2
+  bezier_mod.generators.curve4.xmod_tension = 0.5   -- extreme: feeds tension everywhere
+  bezier_mod.generators.curve4.xmod_range = 0.3
+  bezier_mod.generators.curve5.xmod_speed = 0.4     -- fast curve destabilizes speeds
+  bezier_mod.generators.curve5.xmod_range = 0.35
 end
 
 function bezier_mod.update(dt)
