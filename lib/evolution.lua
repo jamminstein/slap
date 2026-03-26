@@ -183,59 +183,72 @@ function evo.generate_pattern(tracks, track_idx, pool, density, vel_lo, vel_hi)
 end
 
 -- ======== CONDUCTOR ========
--- the multi-handed maestro: each tick, randomly selects ONE track
--- and applies a weighted action. called by ALL personalities for
--- baseline pattern life, on top of personality-specific moods.
+-- the multi-handed maestro: uses the active conductor's style weights
+-- to decide what to touch, when, and how aggressively.
+-- each conductor (MONONEON, THUNDERCAT, etc.) has a unique fingerprint.
 
-local CONDUCTOR_ACTIONS = {
-  {name = "replace_one", weight = 0.25},
-  {name = "velocity_drift", weight = 0.20},
-  {name = "rotate",  weight = 0.10},
-  {name = "thicken", weight = 0.10},
-  {name = "thin",    weight = 0.08},
-  {name = "shift",   weight = 0.06},
-  {name = "extend",  weight = 0.04},
-  {name = "truncate", weight = 0.03},
-  {name = "accent",  weight = 0.07},
-  {name = "ghost",   weight = 0.07},
+local ACTION_NAMES = {
+  "replace_one", "velocity_drift", "rotate", "thicken",
+  "thin", "shift", "extend", "truncate", "accent", "ghost"
 }
 
-function evo.conductor_tick(tracks, energy, intensity)
-  -- intensity: 0-1, how active the conductor is this tick
-  -- higher = more likely to do something
-  intensity = intensity or 0.3
+-- default fallback weights
+local DEFAULT_STYLE = {
+  replace_one = 0.15, velocity_drift = 0.15, rotate = 0.10,
+  thicken = 0.10, thin = 0.08, shift = 0.08,
+  extend = 0.05, truncate = 0.04, accent = 0.12, ghost = 0.13,
+}
+
+function evo.conductor_tick(tracks, energy, conductor_profile)
+  -- conductor_profile: the robot.profiles entry with .style and .intensity_range
+  local style = (conductor_profile and conductor_profile.style) or DEFAULT_STYLE
+  local ir = (conductor_profile and conductor_profile.intensity_range) or {0.2, 0.5}
+
+  -- intensity scales with energy within the conductor's range
+  local intensity = ir[1] + (ir[2] - ir[1]) * energy
+
   local sc = tracks._scale_notes or {}
 
-  -- roll the dice: should we act?
-  if math.random() > intensity then return end
+  -- the maestro can touch MULTIPLE things per tick at high intensity
+  -- base: 1 action. at high intensity: up to 3.
+  local num_actions = 1
+  if math.random() < intensity then num_actions = num_actions + 1 end
+  if math.random() < intensity * 0.5 then num_actions = num_actions + 1 end
 
-  -- pick a random track (weighted toward tracks with more steps)
-  local track_idx = math.random(1, 4)
+  for _ = 1, num_actions do
+    -- roll: should this hand act?
+    if math.random() > intensity then goto continue end
 
-  -- pick an action based on weights
-  local roll = math.random()
-  local cumulative = 0
-  local action = "replace_one"
-  for _, a in ipairs(CONDUCTOR_ACTIONS) do
-    cumulative = cumulative + a.weight
-    if roll <= cumulative then
-      action = a.name
-      break
+    -- pick a random track
+    local track_idx = math.random(1, 4)
+
+    -- pick action from this conductor's style weights
+    local roll = math.random()
+    local cumulative = 0
+    local action = "replace_one"
+    for _, name in ipairs(ACTION_NAMES) do
+      cumulative = cumulative + (style[name] or 0)
+      if roll <= cumulative then
+        action = name
+        break
+      end
     end
-  end
 
-  -- apply with musical args
-  local args = {scale_notes = sc}
-  if action == "rotate" then
-    args.n = ({1, -1, 2, -2, 3})[math.random(5)]
-  elseif action == "shift" then
-    args.interval = ({2, -2, 5, -5, 7, -7, 12, -12})[math.random(8)]
-  elseif action == "extend" or action == "truncate" then
-    args.count = 1
-    args.scale_notes = sc
-  end
+    -- build musical args
+    local args = {scale_notes = sc}
+    if action == "rotate" then
+      args.n = ({1, -1, 2, -2, 3, -3})[math.random(6)]
+    elseif action == "shift" then
+      args.interval = ({2, -2, 3, -3, 5, -5, 7, -7, 12, -12})[math.random(10)]
+    elseif action == "extend" or action == "truncate" then
+      args.count = math.random(1, 2)
+      args.scale_notes = sc
+    end
 
-  evo.pattern_mutate(tracks, track_idx, action, args)
+    evo.pattern_mutate(tracks, track_idx, action, args)
+
+    ::continue::
+  end
 end
 
 return evo

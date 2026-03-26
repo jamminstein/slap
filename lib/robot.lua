@@ -1,20 +1,90 @@
 -- robot.lua
--- pixel art robot avatars for slap
--- 5 named profiles, each with unique visual style
--- expressions driven by energy, mood, and beat
+-- pixel art conductor avatars for slap
+-- 6 named conductors, each a musical madman
+-- visual style + conducting behavior (action weights for maestro)
 
 local robot = {}
 
--- ======== PROFILES ========
--- each profile: visual style + which personality drives the song engine
+-- ======== CONDUCTOR PROFILES ========
+-- each conductor has:
+--   personality: which song form drives the autonomous mode
+--   conducting_style: weighted actions for the maestro system
+--   intensity_range: how active they are {min, max}
+--   visual: head/eyes/mouth/feat for the avatar
 
 robot.profiles = {
-  {name = "OTTO",  desc = "all-rounder",     personality = 1, head = "circle",  eyes = "round",  mouth = "smile",  feat = "antenna"},
-  {name = "VERA",  desc = "melodic dreamer",  personality = 3, head = "pill",    eyes = "line",   mouth = "dot",    feat = "ears"},
-  {name = "SPIKE", desc = "rhythm destroyer", personality = 4, head = "square",  eyes = "cross",  mouth = "zigzag", feat = "sparks"},
-  {name = "MONK",  desc = "ambient drifter",  personality = 1, head = "circle",  eyes = "dot",    mouth = "none",   feat = "halo"},
-  {name = "NORI",  desc = "acid explorer",    personality = 2, head = "diamond", eyes = "arrow",  mouth = "flat",   feat = "drip"},
-  {name = "AEON",  desc = "atemporal form",   personality = 5, head = "circle",  eyes = "round",  mouth = "none",   feat = "orbit"},
+  -- MONONEON: unpredictable virtuoso, wild jumps, weird lengths
+  {
+    name = "MONONEON", desc = "unpredictable virtuoso",
+    personality = 5, -- atemporal
+    head = "square", eyes = "cross", mouth = "zigzag", feat = "sparks",
+    intensity_range = {0.4, 0.8},
+    style = {
+      replace_one = 0.15, velocity_drift = 0.10, rotate = 0.15,
+      thicken = 0.08, thin = 0.08, shift = 0.15,
+      extend = 0.10, truncate = 0.10, accent = 0.05, ghost = 0.04,
+    },
+  },
+  -- THUNDERCAT: jazzy, complex harmonies, dreamy, virtuosic
+  {
+    name = "THUNDERCAT", desc = "jazzy dreamer",
+    personality = 3, -- toroid/melodic
+    head = "pill", eyes = "round", mouth = "smile", feat = "ears",
+    intensity_range = {0.25, 0.6},
+    style = {
+      replace_one = 0.30, velocity_drift = 0.20, rotate = 0.05,
+      thicken = 0.12, thin = 0.05, shift = 0.12,
+      extend = 0.03, truncate = 0.02, accent = 0.06, ghost = 0.05,
+    },
+  },
+  -- THOM YORKE: angular, glitchy, emotional, sudden silences
+  {
+    name = "THOM YORKE", desc = "angular glitch poet",
+    personality = 5, -- atemporal
+    head = "diamond", eyes = "line", mouth = "flat", feat = "orbit",
+    intensity_range = {0.2, 0.7},
+    style = {
+      replace_one = 0.10, velocity_drift = 0.08, rotate = 0.20,
+      thicken = 0.05, thin = 0.18, shift = 0.12,
+      extend = 0.05, truncate = 0.08, accent = 0.04, ghost = 0.10,
+    },
+  },
+  -- FLEA: punk energy, explosive, slap bass, high density
+  {
+    name = "FLEA", desc = "explosive punk funk",
+    personality = 4, -- bzzt/rhythm
+    head = "circle", eyes = "round", mouth = "zigzag", feat = "antenna",
+    intensity_range = {0.5, 0.9},
+    style = {
+      replace_one = 0.10, velocity_drift = 0.05, rotate = 0.08,
+      thicken = 0.25, thin = 0.03, shift = 0.08,
+      extend = 0.06, truncate = 0.02, accent = 0.25, ghost = 0.08,
+    },
+  },
+  -- BOOTSY COLLINS: the ONE, deep pocket, space funk, groove master
+  {
+    name = "BOOTSY", desc = "space funk groove",
+    personality = 2, -- zkit/acid
+    head = "pill", eyes = "round", mouth = "smile", feat = "halo",
+    intensity_range = {0.15, 0.45},
+    style = {
+      replace_one = 0.08, velocity_drift = 0.30, rotate = 0.05,
+      thicken = 0.05, thin = 0.05, shift = 0.05,
+      extend = 0.02, truncate = 0.02, accent = 0.15, ghost = 0.23,
+    },
+  },
+  -- HERMETO PASCOAL: complete madman genius, uses everything
+  {
+    name = "HERMETO", desc = "total genius madman",
+    personality = 5, -- atemporal
+    head = "circle", eyes = "cross", mouth = "smile", feat = "sparks",
+    intensity_range = {0.5, 0.95},
+    style = {
+      replace_one = 0.15, velocity_drift = 0.08, rotate = 0.12,
+      thicken = 0.10, thin = 0.10, shift = 0.12,
+      extend = 0.10, truncate = 0.08, accent = 0.08, ghost = 0.07,
+    },
+  },
 }
 
 robot.NAMES = {}
@@ -29,16 +99,12 @@ local beat_flash = 0
 
 function robot.update(dt)
   idle_t = idle_t + dt
-
-  -- blink
   blink_timer = blink_timer + dt
   if blink_on then
     if blink_timer > 0.1 then blink_on = false; blink_timer = 0 end
   else
     if blink_timer > (2.5 + math.random() * 3) then blink_on = true; blink_timer = 0 end
   end
-
-  -- beat decay
   beat_flash = beat_flash * 0.82
 end
 
@@ -63,52 +129,42 @@ function robot.draw(idx, cx, cy, energy, active)
     screen.fill()
   end
 
-  -- === HEAD ===
+  -- HEAD
   screen.level(bright)
   if p.head == "circle" then
-    screen.circle(cx, cy - 4, 9 + e)
-    screen.fill()
+    screen.circle(cx, cy - 4, 9 + e); screen.fill()
   elseif p.head == "square" then
     local s = 8 + e
     local jx = active and (math.random() < 0.15 and math.random(-1, 1) or 0) or 0
-    screen.rect(cx - s + jx, cy - 4 - s, s * 2, s * 2)
-    screen.fill()
+    screen.rect(cx - s + jx, cy - 4 - s, s * 2, s * 2); screen.fill()
   elseif p.head == "diamond" then
     local s = 9 + e
-    screen.move(cx, cy - 4 - s)
-    screen.line(cx + s, cy - 4)
-    screen.line(cx, cy - 4 + s)
-    screen.line(cx - s, cy - 4)
-    screen.close()
-    screen.fill()
+    screen.move(cx, cy-4-s); screen.line(cx+s, cy-4)
+    screen.line(cx, cy-4+s); screen.line(cx-s, cy-4)
+    screen.close(); screen.fill()
   elseif p.head == "pill" then
-    local w = 11 + e
-    local h = 7 + e * 0.5
-    screen.rect(cx - w, cy - 4 - h, w * 2, h * 2)
-    screen.fill()
+    local w = 11 + e; local h = 7 + e * 0.5
+    screen.rect(cx-w, cy-4-h, w*2, h*2); screen.fill()
   end
 
-  -- === EYES === (dark on bright head)
+  -- EYES
   screen.level(0)
-  local ey = cy - 6
-  local el = cx - 4
-  local er = cx + 4
+  local ey = cy - 6; local el = cx - 4; local er = cx + 4
 
   if blink_on then
-    -- blink: thin lines
-    screen.move(el - 2, ey); screen.line(el + 2, ey); screen.stroke()
-    screen.move(er - 2, ey); screen.line(er + 2, ey); screen.stroke()
+    screen.move(el-2, ey); screen.line(el+2, ey); screen.stroke()
+    screen.move(er-2, ey); screen.line(er+2, ey); screen.stroke()
   elseif p.eyes == "round" then
     local r = 1.5 + e * 0.5
     screen.circle(el, ey, r); screen.fill()
     screen.circle(er, ey, r); screen.fill()
   elseif p.eyes == "dot" then
-    screen.rect(el - 1, ey - 1, 2, 2); screen.fill()
-    screen.rect(er - 1, ey - 1, 2, 2); screen.fill()
+    screen.rect(el-1, ey-1, 2, 2); screen.fill()
+    screen.rect(er-1, ey-1, 2, 2); screen.fill()
   elseif p.eyes == "line" then
     local w = 2 + e
-    screen.move(el - w, ey); screen.line(el + w, ey); screen.stroke()
-    screen.move(er - w, ey); screen.line(er + w, ey); screen.stroke()
+    screen.move(el-w, ey); screen.line(el+w, ey); screen.stroke()
+    screen.move(er-w, ey); screen.line(er+w, ey); screen.stroke()
   elseif p.eyes == "cross" then
     local s = 1.5 + e * 0.3
     screen.move(el-s, ey-s); screen.line(el+s, ey+s); screen.stroke()
@@ -122,61 +178,49 @@ function robot.draw(idx, cx, cy, energy, active)
     screen.close(); screen.fill()
   end
 
-  -- === MOUTH ===
+  -- MOUTH
   screen.level(0)
   local my = cy - 1
-
   if p.mouth == "smile" then
     local w = 2 + e * 1.5
-    screen.move(cx - w, my)
-    screen.line(cx, my + 1 + e)
-    screen.line(cx + w, my)
-    screen.stroke()
+    screen.move(cx-w, my); screen.line(cx, my+1+e); screen.line(cx+w, my); screen.stroke()
   elseif p.mouth == "flat" then
     local w = 3 + e
-    screen.move(cx - w, my); screen.line(cx + w, my); screen.stroke()
+    screen.move(cx-w, my); screen.line(cx+w, my); screen.stroke()
   elseif p.mouth == "dot" then
-    screen.rect(cx - 1, my - 1, 2, 2); screen.fill()
+    screen.rect(cx-1, my-1, 2, 2); screen.fill()
   elseif p.mouth == "zigzag" then
     local w = 3 + e
-    screen.move(cx - w, my)
-    screen.line(cx - w*0.3, my + 2)
-    screen.line(cx + w*0.3, my - 1)
-    screen.line(cx + w, my)
-    screen.stroke()
+    screen.move(cx-w, my); screen.line(cx-w*0.3, my+2)
+    screen.line(cx+w*0.3, my-1); screen.line(cx+w, my); screen.stroke()
   end
-  -- "none" = MONK, no mouth
 
-  -- === FEATURE ===
+  -- FEATURE
   screen.level(active and 12 or 4)
-
   if p.feat == "antenna" then
     local bob = math.sin(idle_t * 2) * 1.5
     local top = cy - 15 - e + bob
-    screen.move(cx, cy - 13 - e); screen.line(cx, top); screen.stroke()
-    screen.circle(cx, top - 1, 1.5); screen.fill()
+    screen.move(cx, cy-13-e); screen.line(cx, top); screen.stroke()
+    screen.circle(cx, top-1, 1.5); screen.fill()
   elseif p.feat == "ears" then
     local s = 10 + e
-    screen.move(cx - s, cy - 6); screen.line(cx - s - 3, cy - 12); screen.stroke()
-    screen.move(cx + s, cy - 6); screen.line(cx + s + 3, cy - 12); screen.stroke()
+    screen.move(cx-s, cy-6); screen.line(cx-s-3, cy-12); screen.stroke()
+    screen.move(cx+s, cy-6); screen.line(cx+s+3, cy-12); screen.stroke()
   elseif p.feat == "sparks" then
     if active then
-      for _ = 1, math.floor(2 + e * 3) do
-        screen.pixel(cx + math.random(-14, 14), cy - 4 + math.random(-14, 10))
+      for _ = 1, math.floor(2 + e * 4) do
+        screen.pixel(cx + math.random(-14, 14), cy-4 + math.random(-14, 10))
         screen.fill()
       end
     end
   elseif p.feat == "halo" then
     local yb = math.sin(idle_t) * 1.5
-    screen.circle(cx, cy - 16 - e + yb, 4); screen.stroke()
+    screen.circle(cx, cy-16-e+yb, 4); screen.stroke()
   elseif p.feat == "drip" then
     local dy = (idle_t * 6) % 10
-    screen.move(cx, cy + 5 + e)
-    screen.line(cx, cy + 5 + e + dy)
-    screen.stroke()
-    screen.circle(cx, cy + 6 + e + dy, 1); screen.fill()
+    screen.move(cx, cy+5+e); screen.line(cx, cy+5+e+dy); screen.stroke()
+    screen.circle(cx, cy+6+e+dy, 1); screen.fill()
   elseif p.feat == "orbit" then
-    -- 3 orbiting dots at different speeds, irregular spacing
     local r = 12 + e * 3
     for oi = 1, 3 do
       local speed = ({0.7, 1.3, 2.1})[oi]
