@@ -621,30 +621,12 @@ end
 -- ---- PAGE 1: SEQ ----
 
 local function draw_seq_page()
-  draw_header("SEQ")
+  -- header uses track name instead of "SEQ"
+  draw_header(TRACK_NAMES[selected_track])
 
-  -- big track name (left side)
-  screen.level(15)
-  screen.font_size(16)
-  screen.move(2, 24)
-  screen.text(TRACK_NAMES[selected_track])
-  screen.font_size(8)
-
-  -- step info below name
-  local step = tracks[selected_track].steps[selected_step]
-  local nn = musicutil.note_num_to_name(step.note, true)
-  screen.level(8)
-  screen.move(2, 34)
-  screen.text(selected_step .. ":" .. nn)
-  if step.on then
-    screen.move(40, 34)
-    screen.level(6)
-    screen.text("v" .. string.format("%.0f", step.vel * 100))
-  end
-
-  -- 4 track rows (compact, right-aligned)
+  -- full 4-track step display (12px per row)
   for t = 1, NUM_TRACKS do
-    local y0 = 38 + (t-1) * 6
+    local y0 = 10 + (t-1) * 12
     local is_sel = (t == selected_track)
 
     for s = 1, NUM_STEPS do
@@ -654,27 +636,26 @@ local function draw_seq_page()
       local is_cur = (is_sel and s == selected_step)
 
       -- velocity-scaled height
-      local max_h = 4
-      local h = stp.on and math.max(2, math.floor(stp.vel * max_h)) or max_h
+      local max_h = 10
+      local h = stp.on and math.max(3, math.floor(stp.vel * max_h)) or max_h
       local y_off = max_h - h
 
       local lvl
       if is_play and stp.on then lvl = 15
-      elseif is_play then lvl = is_sel and 7 or 3
-      elseif stp.on then lvl = is_sel and 10 or 4
-      else lvl = is_sel and 2 or 0 end
+      elseif is_play then lvl = is_sel and 7 or 4
+      elseif stp.on then lvl = is_sel and 10 or 5
+      else lvl = is_sel and 3 or 1 end
 
-      if lvl > 0 then
-        screen.level(lvl)
-        if stp.on or is_play then
-          screen.rect(x + 1, y0 + y_off, 6, h)
-          screen.fill()
-        else
-          screen.rect(x + 1, y0, 6, max_h)
-          screen.stroke()
-        end
+      screen.level(lvl)
+      if stp.on or is_play then
+        screen.rect(x + 1, y0 + y_off, 6, h)
+        screen.fill()
+      else
+        screen.rect(x + 1, y0, 6, max_h)
+        screen.stroke()
       end
 
+      -- cursor
       if is_cur then
         screen.level(15)
         screen.rect(x + 2, y0 + max_h + 1, 4, 1)
@@ -683,8 +664,16 @@ local function draw_seq_page()
     end
   end
 
-  -- play state
-  screen.level(playing and 15 or 3); screen.move(124, 34); screen.text_right(playing and ">" or "||")
+  -- info bar at bottom
+  local step = tracks[selected_track].steps[selected_step]
+  local nn = musicutil.note_num_to_name(step.note, true)
+  screen.level(10); screen.move(0, 63)
+  screen.text(TRACK_SHORT[selected_track] .. " " .. selected_step .. ":" .. nn)
+  if step.on then
+    screen.level(6); screen.move(56, 63)
+    screen.text("v" .. string.format("%.0f", step.vel * 100))
+  end
+  screen.level(playing and 15 or 3); screen.move(124, 63); screen.text_right(playing and ">" or "||")
 end
 
 -- ---- PAGE 2: VOICE ----
