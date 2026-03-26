@@ -3,14 +3,17 @@
 -- inspired by Fred's Lab:
 -- MANTA / ZKIT / TOROID / BZZT
 --
+-- 6 pages: SEQ / VOICE / MIX / MOD / ASSIST / AUTO
 -- E1: page select
--- E2/E3: page params (per page)
 -- K2: play/stop
 -- K3: hold=ALT, tap=page action
 --
--- pages: SEQ / VOICE / MOD / AUTO
+-- grid rows 1-4: step toggles
+-- grid row 5: mute toggles
+-- grid row 6: solo toggles
+-- grid rows 7-8: pattern snapshots
 --
--- v2.0 @jamminstein
+-- v3.0 @jamminstein
 
 engine.name = "Slap"
 
@@ -30,6 +33,15 @@ local MAX_STEPS = 24
 local TRACK_NAMES = {"MANTA", "ZKIT", "TOROID", "BZZT"}
 local TRACK_SHORT = {"MNT", "ZKT", "TRD", "BZT"}
 
+local SCALE_NAMES = {"minor pentatonic", "major pentatonic", "dorian", "natural minor",
+                     "major", "phrygian", "mixolydian", "chromatic"}
+local SCALE_SHORT = {"mPn", "MPn", "Dor", "Min", "Maj", "Phr", "Mix", "Chr"}
+
+-- clock divisions per track: {name, sync_value}
+local DIVISIONS = {
+  {"1/32", 1/8}, {"1/16", 1/4}, {"1/8", 1/2}, {"1/4", 1}, {"1/2", 2},
+}
+
 -- bezier modulation routing targets
 local MOD_ROUTES = {
   {name = "MNT.cut", param = "t1_cutoff", sc_param = "cutoff", track = 1, base_mult = 0.5},
@@ -40,7 +52,7 @@ local MOD_ROUTES = {
   {name = "BZT.pwm", param = "t4_pwm",    sc_param = "pwm",    track = 4, base_mult = 0.3},
 }
 local mod_amounts = {0, 0, 0, 0, 0, 0}
-local mod_values = {0, 0, 0, 0, 0, 0}  -- live modulation output (-1 to 1)
+local mod_values = {0, 0, 0, 0, 0, 0}
 local selected_route = 1
 
 -- ======== STATE ========
@@ -51,20 +63,36 @@ local selected_track = 1
 local selected_step = 1
 local k3_held = false
 local k3_press_time = 0
-local seq_clock = nil
 
 -- explorer
 local explorer_on = false
 local robot_profile = 1
-
--- micro-assistants
-local ASSISTANT_NAMES = {"LSD", "WATER", "TURM"}
-local assistant_intensity = {0.5, 0.5, 0.5}  -- 0-1 per assistant
-local assistant_activity = {0, 0, 0}          -- visual pulse (decays)
-local selected_assistant = 1
+local conductor_intensity_mult = 1.0  -- user-controllable on AUTO E3
 
 -- scale
 local scale_notes = {}
+local root_note = 38  -- D2
+local scale_type = 1  -- minor pentatonic
+
+-- swing
+local swing_amount = 0  -- 0-100
+
+-- mute/solo
+local track_mute = {false, false, false, false}
+local track_solo = {false, false, false, false}
+
+-- pattern snapshots (8 slots)
+local snapshots = {}
+
+-- MIDI
+local midi_out_device = nil
+local midi_out_ch = 0  -- 0 = off
+
+-- micro-assistants
+local ASSISTANT_NAMES = {"LSD", "WATER", "TURM"}
+local assistant_intensity = {0.5, 0.5, 0.5}
+local assistant_activity = {0, 0, 0}
+local selected_assistant = 1
 
 -- tracks
 local tracks = {}
@@ -76,7 +104,7 @@ local held_steps = {}
 -- visual feedback
 local param_flash = 0
 local param_flash_name = ""
-local step_flash = {}  -- per-track, per-step trigger flash
+local step_flash = {}
 for t = 1, NUM_TRACKS do
   step_flash[t] = {}
   for i = 1, MAX_STEPS do step_flash[t][i] = 0 end
@@ -85,7 +113,7 @@ end
 -- ======== SCALE ========
 
 function build_scale()
-  scale_notes = musicutil.generate_scale(26, "minor pentatonic", 7)
+  scale_notes = musicutil.generate_scale(root_note - 12, SCALE_NAMES[scale_type], 8)
   tracks._scale_notes = scale_notes
 end
 
@@ -95,47 +123,78 @@ function init_tracks()
   for i = 1, NUM_TRACKS do
     tracks[i] = {
       steps = {},
-      num_steps = 16,  -- default, overridden below
-      position = 0,    -- per-track playhead
+      num_steps = 16,
+      position = 0,
+      division = 2,       -- index into DIVISIONS (1/16 default)
       cutoff = 2000, res = 0.3, gate = 0.7, level = 1.0,
+      probability = 100,  -- 0-100% chance each step fires
     }
     for s = 1, MAX_STEPS do
-      tracks[i].steps[s] = {on = false, note = 60, vel = 0.8}
+      tracks[i].steps[s] = {on = false, note = 60, vel = 0.8, prob = 100}
     end
   end
 
-  -- MANTA: 12-step pads (3/4 against 4/4)
+  -- MANTA: 12-step pads, 1/8 division
   local m = tracks[1]
-  m.num_steps = 12
+  m.num_steps = 12; m.division = 3
   m.cutoff = 3500; m.res = 0.15; m.gate = 0.95
   m.spread = 0.4; m.brightness = 0.6
   local m_pat = {{1,50,0.5},{4,57,0.45},{7,53,0.5},{10,55,0.4}}
-  for _, p in ipairs(m_pat) do m.steps[p[1]] = {on=true, note=p[2], vel=p[3]} end
+  for _, p in ipairs(m_pat) do m.steps[p[1]] = {on=true, note=p[2], vel=p[3], prob=100} end
 
-  -- ZKIT: 16-step acid bass (standard 4/4)
+  -- ZKIT: 16-step acid bass, 1/16 division
   local z = tracks[2]
-  z.num_steps = 16
+  z.num_steps = 16; z.division = 2
   z.cutoff = 500; z.res = 0.75; z.gate = 0.45; z.accent = 0.85
   local z_pat = {{1,38,1.0},{4,38,0.7},{6,41,0.9},{8,43,0.6},{9,45,1.0},{12,45,0.5},{14,43,0.8},{16,41,0.6}}
-  for _, p in ipairs(z_pat) do z.steps[p[1]] = {on=true, note=p[2], vel=p[3]} end
+  for _, p in ipairs(z_pat) do z.steps[p[1]] = {on=true, note=p[2], vel=p[3], prob=100} end
 
-  -- TOROID: 14-step melody (7/8 feel)
+  -- TOROID: 14-step melody, 1/16 division
   local t = tracks[3]
-  t.num_steps = 14
+  t.num_steps = 14; t.division = 2
   t.cutoff = 4500; t.res = 0.3; t.gate = 0.55
   t.morph = 0.35; t.fmamt = 0.25; t.lfoRate = 3; t.lfoDepth = 0.15
   local t_pat = {{1,62,0.7},{2,65,0.6},{3,69,0.7},{5,74,0.8},{7,69,0.6},{9,65,0.7},{11,62,0.5},{13,60,0.6},{14,62,0.5}}
-  for _, p in ipairs(t_pat) do t.steps[p[1]] = {on=true, note=p[2], vel=p[3]} end
+  for _, p in ipairs(t_pat) do t.steps[p[1]] = {on=true, note=p[2], vel=p[3], prob=100} end
 
-  -- BZZT: 10-step percussion (5/8 feel)
+  -- BZZT: 10-step percussion, 1/32 division (fast!)
   local b = tracks[4]
-  b.num_steps = 10
+  b.num_steps = 10; b.division = 1
   b.cutoff = 7000; b.res = 0.15; b.gate = 0.15
   b.engine_sel = 0; b.pwm = 0.5; b.bits = 10
   local b_pat = {{1,36,1.0},{3,84,0.5},{5,36,0.8},{7,84,0.45},{9,36,1.0},{10,60,0.3}}
-  for _, p in ipairs(b_pat) do b.steps[p[1]] = {on=true, note=p[2], vel=p[3]} end
+  for _, p in ipairs(b_pat) do b.steps[p[1]] = {on=true, note=p[2], vel=p[3], prob=100} end
 
   tracks._scale_notes = scale_notes
+end
+
+-- ======== SNAPSHOTS ========
+
+function save_snapshot(slot)
+  snapshots[slot] = {}
+  for t = 1, NUM_TRACKS do
+    snapshots[slot][t] = {
+      steps = {}, num_steps = tracks[t].num_steps, division = tracks[t].division,
+    }
+    for s = 1, MAX_STEPS do
+      local st = tracks[t].steps[s]
+      snapshots[slot][t].steps[s] = {on = st.on, note = st.note, vel = st.vel, prob = st.prob}
+    end
+  end
+end
+
+function load_snapshot(slot)
+  if not snapshots[slot] then return false end
+  for t = 1, NUM_TRACKS do
+    local snap = snapshots[slot][t]
+    tracks[t].num_steps = snap.num_steps
+    tracks[t].division = snap.division
+    for s = 1, MAX_STEPS do
+      local st = snap.steps[s]
+      tracks[t].steps[s] = {on = st.on, note = st.note, vel = st.vel, prob = st.prob}
+    end
+  end
+  return true
 end
 
 -- ======== ENGINE PARAM SYNC ========
@@ -183,6 +242,17 @@ end
 function init_params()
   params:add_separator("SLAP")
 
+  -- scale
+  params:add_number("root_note", "root note", 24, 72, root_note)
+  params:set_action("root_note", function(v) root_note = v; build_scale() end)
+
+  params:add_option("scale_type", "scale", SCALE_SHORT, scale_type)
+  params:set_action("scale_type", function(v) scale_type = v; build_scale() end)
+
+  params:add_number("swing", "swing", 0, 80, 0)
+  params:set_action("swing", function(v) swing_amount = v end)
+
+  -- reverb
   params:add_control("reverb_mix", "reverb mix",
     controlspec.new(0, 1, 'lin', 0, 0.3))
   params:set_action("reverb_mix", function(v) engine.reverb_mix(v) end)
@@ -194,6 +264,15 @@ function init_params()
   params:add_control("reverb_damp", "reverb damp",
     controlspec.new(0, 1, 'lin', 0, 0.5))
   params:set_action("reverb_damp", function(v) engine.reverb_damp(v) end)
+
+  -- MIDI
+  params:add_separator("MIDI")
+  params:add_number("midi_out_device", "midi out device", 1, 4, 1)
+  params:set_action("midi_out_device", function(v)
+    midi_out_device = midi.connect(v)
+  end)
+  params:add_number("midi_out_ch", "midi out ch (0=off)", 0, 16, 0)
+  params:set_action("midi_out_ch", function(v) midi_out_ch = v end)
 
   -- bezier mod
   params:add_separator("MODULATION")
@@ -236,6 +315,13 @@ function init_params()
     local t = tracks[i]
     local pre = "t" .. i .. "_"
     params:add_separator(TRACK_NAMES[i])
+
+    params:add_option(pre.."division", "clock div",
+      {"1/32","1/16","1/8","1/4","1/2"}, t.division)
+    params:set_action(pre.."division", function(v) t.division = v end)
+
+    params:add_number(pre.."probability", "probability", 0, 100, t.probability)
+    params:set_action(pre.."probability", function(v) t.probability = v end)
 
     params:add_control(pre.."cutoff", "cutoff",
       controlspec.new(30, 12000, 'exp', 0, t.cutoff, "hz"))
@@ -299,6 +385,7 @@ function init()
   init_params()
   bez.init()
   song_engine.init(personalities, evo, tracks)
+  midi_out_device = midi.connect(1)
 
   for i = 1, NUM_TRACKS do send_track_params(i) end
   params:set("clock_tempo", 110)
@@ -321,66 +408,51 @@ function init()
     end
   end)
 
-  -- ======== MICRO-ASSISTANTS ========
-  -- three background processes running on their own clocks
-  -- they handle the params the conductors don't touch
-
-  -- LSD: alters perception — changes how things change
+  -- MICRO-ASSISTANTS
+  -- LSD: perception
   clock.run(function()
     while true do
       clock.sleep(2.5 + math.random() * 4)
       if not playing or assistant_intensity[1] < 0.01 then goto lsd_skip end
       local inten = assistant_intensity[1]
       local picks = {
-        {"bez_speed",   0.01, 3,    0.04},
-        {"bez_tension", 0.1,  1.5,  0.05},
-        {"xmod_speed",  0,    0.8,  0.04},
-        {"lfo_freq",    0.01, 8,    0.03},
+        {"bez_speed",0.01,3,0.04},{"bez_tension",0.1,1.5,0.05},
+        {"xmod_speed",0,0.8,0.04},{"lfo_freq",0.01,8,0.03},
       }
       local p = picks[math.random(#picks)]
       local ok, cur = pcall(function() return params:get(p[1]) end)
       if ok then
-        local drift = (math.random() - 0.5) * (p[3] - p[2]) * p[4] * inten * 2
-        params:set(p[1], util.clamp(cur + drift, p[2], p[3]))
+        local drift = (math.random()-0.5) * (p[3]-p[2]) * p[4] * inten * 2
+        params:set(p[1], util.clamp(cur+drift, p[2], p[3]))
       end
       assistant_activity[1] = 1
       ::lsd_skip::
     end
   end)
 
-  -- WATER: shapes the space — reverb, resonance, gates, levels, pan
+  -- WATER: space + levels + pan
   clock.run(function()
     while true do
       clock.sleep(3 + math.random() * 5)
       if not playing or assistant_intensity[2] < 0.01 then goto water_skip end
       local inten = assistant_intensity[2]
       local picks = {
-        {"reverb_room",  0.2, 0.95, 0.03},
-        {"reverb_damp",  0.1, 0.9,  0.03},
-        {"t1_res",       0.05, 0.6, 0.02},
-        {"t2_res",       0.1, 0.9,  0.03},
-        {"t3_res",       0.05, 0.7, 0.02},
-        {"t4_res",       0.05, 0.5, 0.02},
-        {"t1_gate",      0.4, 1.0,  0.02},
-        {"t2_gate",      0.1, 0.8,  0.03},
-        {"t3_gate",      0.2, 0.9,  0.02},
-        {"t4_gate",      0.05, 0.4, 0.02},
-        {"t1_level",     0.3, 1.0,  0.03},
-        {"t2_level",     0.3, 1.0,  0.03},
-        {"t3_level",     0.3, 1.0,  0.03},
-        {"t4_level",     0.2, 1.0,  0.03},
+        {"reverb_room",0.2,0.95,0.03},{"reverb_damp",0.1,0.9,0.03},
+        {"t1_res",0.05,0.6,0.02},{"t2_res",0.1,0.9,0.03},
+        {"t3_res",0.05,0.7,0.02},{"t4_res",0.05,0.5,0.02},
+        {"t1_gate",0.4,1.0,0.02},{"t2_gate",0.1,0.8,0.03},
+        {"t3_gate",0.2,0.9,0.02},{"t4_gate",0.05,0.4,0.02},
+        {"t1_level",0.3,1.0,0.03},{"t2_level",0.3,1.0,0.03},
+        {"t3_level",0.3,1.0,0.03},{"t4_level",0.2,1.0,0.03},
       }
-      -- stereo drift
-      local pan_track = math.random(1, 4)
-      engine.set_param(pan_track - 1, "pan",
-        util.clamp((math.random() - 0.5) * inten * 1.6, -0.8, 0.8))
-      -- touch 1-2 params
-      for _ = 1, math.random(1, 2) do
+      engine.set_param(math.random(0,3), "pan",
+        util.clamp((math.random()-0.5)*inten*1.6, -0.8, 0.8))
+      for _ = 1, math.random(1,2) do
         local p = picks[math.random(#picks)]
         local ok, cur = pcall(function() return params:get(p[1]) end)
         if ok then
-          local drift = (math.random() - 0.5) * (p[3] - p[2]) * p[4] * inten * 2
-          params:set(p[1], util.clamp(cur + drift, p[2], p[3]))
+          local drift = (math.random()-0.5) * (p[3]-p[2]) * p[4] * inten * 2
+          params:set(p[1], util.clamp(cur+drift, p[2], p[3]))
         end
       end
       assistant_activity[2] = 1
@@ -388,26 +460,23 @@ function init()
     end
   end)
 
-  -- TURMERIC: warm color — brightness, spread, lfo depth, pwm, bits
+  -- TURMERIC: warm color
   clock.run(function()
     while true do
       clock.sleep(4 + math.random() * 6)
       if not playing or assistant_intensity[3] < 0.01 then goto turmeric_skip end
       local inten = assistant_intensity[3]
       local picks = {
-        {"t1_spread",     0.1, 0.8,  0.02},
-        {"t1_brightness", 0.2, 0.9,  0.02},
-        {"t3_lfoRate",    0.3, 12,   0.03},
-        {"t3_lfoDepth",   0.0, 0.5,  0.02},
-        {"t4_pwm",        0.1, 0.9,  0.03},
-        {"t4_bits",       6,   16,   0.04},
-        {"t3_fmamt",      0.0, 0.6,  0.02},
+        {"t1_spread",0.1,0.8,0.02},{"t1_brightness",0.2,0.9,0.02},
+        {"t3_lfoRate",0.3,12,0.03},{"t3_lfoDepth",0.0,0.5,0.02},
+        {"t4_pwm",0.1,0.9,0.03},{"t4_bits",6,16,0.04},
+        {"t3_fmamt",0.0,0.6,0.02},
       }
       local p = picks[math.random(#picks)]
       local ok, cur = pcall(function() return params:get(p[1]) end)
       if ok then
-        local drift = (math.random() - 0.5) * (p[3] - p[2]) * p[4] * inten * 2
-        params:set(p[1], util.clamp(cur + drift, p[2], p[3]))
+        local drift = (math.random()-0.5) * (p[3]-p[2]) * p[4] * inten * 2
+        params:set(p[1], util.clamp(cur+drift, p[2], p[3]))
       end
       assistant_activity[3] = 1
       ::turmeric_skip::
@@ -429,7 +498,7 @@ function apply_bezier_modulation()
     if mod_amounts[i] > 0.01 then
       local base = params:get(route.param)
       local raw = sources[i] * mod_amounts[i]
-      mod_values[i] = raw  -- store for screen
+      mod_values[i] = raw
       local mod = raw * base * route.base_mult
       engine.set_param(route.track - 1, route.sc_param, util.clamp(base + mod, 30, 16000))
     else
@@ -440,52 +509,96 @@ end
 
 -- ======== SEQUENCER ========
 
+local function is_track_audible(t)
+  if track_mute[t] then return false end
+  local any_solo = false
+  for i = 1, NUM_TRACKS do if track_solo[i] then any_solo = true; break end end
+  if any_solo and not track_solo[t] then return false end
+  return true
+end
+
 function trigger_note(track_idx)
   local t = tracks[track_idx]
   local step = t.steps[t.position]
-  if step and step.on then
-    local freq = musicutil.note_num_to_freq(step.note)
-    local amp = step.vel * t.level
-    send_track_params(track_idx)
-    engine.note_on(track_idx - 1, freq, amp)
-    step_flash[track_idx][t.position] = 1
-    clock.run(function()
-      clock.sleep(clock.get_beat_sec() * t.gate * 0.25)
-      engine.note_off(track_idx - 1)
-    end)
+  if not step or not step.on then return end
+  if not is_track_audible(track_idx) then return end
+
+  -- step probability
+  local prob = step.prob or 100
+  local track_prob = t.probability or 100
+  local final_prob = (prob / 100) * (track_prob / 100)
+  if math.random() > final_prob then return end
+
+  local freq = musicutil.note_num_to_freq(step.note)
+  local amp = step.vel * t.level
+  send_track_params(track_idx)
+  engine.note_on(track_idx - 1, freq, amp)
+  step_flash[track_idx][t.position] = 1
+
+  -- MIDI out
+  if midi_out_device and midi_out_ch > 0 then
+    midi_out_device:note_on(step.note, math.floor(step.vel * 127), midi_out_ch)
   end
+
+  clock.run(function()
+    clock.sleep(clock.get_beat_sec() * t.gate * DIVISIONS[t.division][2])
+    engine.note_off(track_idx - 1)
+    if midi_out_device and midi_out_ch > 0 then
+      midi_out_device:note_off(step.note, 0, midi_out_ch)
+    end
+  end)
 end
 
+local track_clocks = {}
 local conductor_tick_count = 0
 
 function start_sequencer()
   playing = true
-  seq_clock = clock.run(function()
-    while playing do
-      clock.sync(1/4)
-      robot.beat()
-      -- each track advances independently through its own length
-      for t = 1, NUM_TRACKS do
+
+  -- each track runs its own clock at its own division
+  for t = 1, NUM_TRACKS do
+    track_clocks[t] = clock.run(function()
+      local swing_tick = 0
+      while playing do
+        local div = DIVISIONS[tracks[t].division][2]
+
+        -- swing: delay even ticks
+        swing_tick = swing_tick + 1
+        if swing_tick % 2 == 0 and swing_amount > 0 then
+          clock.sleep(clock.get_beat_sec() * div * swing_amount * 0.01 * 0.5)
+        end
+
+        clock.sync(div)
         tracks[t].position = (tracks[t].position % tracks[t].num_steps) + 1
         trigger_note(t)
       end
-      -- conductor: fires every 4 ticks (once per bar)
-      conductor_tick_count = conductor_tick_count + 1
-      if conductor_tick_count % 4 == 0 then
-        local energy = explorer_on and song_engine.get_energy() or 0.3
-        local profile = robot.profiles[robot_profile]
-        evo.conductor_tick(tracks, energy, profile)
-      end
+    end)
+  end
+
+  -- conductor clock (once per bar)
+  track_clocks[5] = clock.run(function()
+    while playing do
+      clock.sync(1)
+      robot.beat()
+      local energy = explorer_on and song_engine.get_energy() or 0.3
+      local profile = robot.profiles[robot_profile]
+      -- scale conductor by user intensity multiplier
+      local saved_ir = profile.intensity_range
+      profile.intensity_range = {saved_ir[1] * conductor_intensity_mult,
+                                  saved_ir[2] * conductor_intensity_mult}
+      evo.conductor_tick(tracks, energy, profile)
+      profile.intensity_range = saved_ir
     end
   end)
 end
 
 function stop_sequencer()
   playing = false
-  if seq_clock then clock.cancel(seq_clock); seq_clock = nil end
+  for i = 1, 5 do
+    if track_clocks[i] then clock.cancel(track_clocks[i]); track_clocks[i] = nil end
+  end
   for i = 0, 3 do engine.note_off(i) end
   for t = 1, NUM_TRACKS do tracks[t].position = 0 end
-  conductor_tick_count = 0
 end
 
 -- ======== EXPLORER ========
@@ -503,10 +616,6 @@ local function stop_explorer()
 end
 
 -- ======== ENCODERS ========
--- SEQ:   E2=step       E3=note       ALT+E2=track      ALT+E3=velocity
--- VOICE: E2=cutoff     E3=voice-param ALT+E2=res        ALT+E3=voice-param2
--- MOD:   E2=route sel  E3=amount     ALT+E2=bez speed   ALT+E3=tension
--- AUTO:  E2=profile    E3=reverb     ALT+E2=xmod        ALT+E3=lfo freq
 
 function enc(n, d)
   if n == 1 then
@@ -521,9 +630,10 @@ function enc(n, d)
         selected_step = util.clamp(selected_step, 1, tracks[selected_track].num_steps)
         flash(TRACK_NAMES[selected_track])
       elseif n == 3 then
+        -- ALT+E3: step probability
         local step = tracks[selected_track].steps[selected_step]
-        step.vel = util.clamp(step.vel + d * 0.05, 0.1, 1.0)
-        flash("vel:" .. string.format("%.0f", step.vel * 100))
+        step.prob = util.clamp((step.prob or 100) + d * 5, 0, 100)
+        flash("p:" .. step.prob .. "%")
       end
     else
       if n == 2 then
@@ -539,18 +649,18 @@ function enc(n, d)
   elseif current_page == 2 then -- VOICE
     local pre = "t" .. selected_track .. "_"
     if k3_held then
-      -- ALT: E2=resonance, E3=voice-specific param 2
       if n == 2 then
-        user_delta(pre .. "res", d * 0.02)
+        -- ALT+E2: scale root
+        root_note = util.clamp(root_note + d, 24, 72)
+        params:set("root_note", root_note)
+        flash(musicutil.note_num_to_name(root_note, true))
       elseif n == 3 then
-        if selected_track == 1 then user_delta(pre .. "brightness", d * 0.02)
-        elseif selected_track == 2 then user_delta(pre .. "gate", d * 0.02)
-        elseif selected_track == 3 then user_delta(pre .. "fmamt", d * 0.02)
-        elseif selected_track == 4 then user_delta(pre .. "bits", d)
-        end
+        -- ALT+E3: scale type
+        scale_type = util.clamp(scale_type + d, 1, #SCALE_NAMES)
+        params:set("scale_type", scale_type)
+        flash(SCALE_SHORT[scale_type])
       end
     else
-      -- E2=cutoff, E3=voice-specific primary param
       if n == 2 then
         local t = tracks[selected_track]
         user_set(pre .. "cutoff", util.clamp(t.cutoff * (1 + d * 0.03), 30, 12000))
@@ -569,33 +679,38 @@ function enc(n, d)
 
   elseif current_page == 3 then -- MIX
     if k3_held then
-      -- ALT: E2=reverb room, E3=reverb damp
-      if n == 2 then user_delta("reverb_room", d * 0.05)
-      elseif n == 3 then user_delta("reverb_damp", d * 0.05) end
-    else
-      -- E2=selected track level, E3=reverb mix (master)
+      -- ALT: E2=swing, E3=reverb room
       if n == 2 then
-        local pre = "t" .. selected_track .. "_"
+        swing_amount = util.clamp(swing_amount + d * 2, 0, 80)
+        params:set("swing", swing_amount)
+        flash("sw:" .. swing_amount)
+      elseif n == 3 then
+        user_delta("reverb_room", d * 0.05)
+      end
+    else
+      -- E2=track level, E3=reverb mix
+      if n == 2 then
         local cur = tracks[selected_track].level
         local new_val = util.clamp(cur + d * 0.05, 0, 1)
         tracks[selected_track].level = new_val
-        params:set(pre .. "level", new_val)
-        flash(string.format("%.0f%%", new_val * 100))
+        params:set("t" .. selected_track .. "_level", new_val)
+        flash(TRACK_SHORT[selected_track] .. " " .. string.format("%.0f%%", new_val * 100))
       elseif n == 3 then
-        user_delta("reverb_mix", d * 0.05)
+        local cur = params:get("reverb_mix")
+        local new_val = util.clamp(cur + d * 0.05, 0, 1)
+        params:set("reverb_mix", new_val)
+        flash("rev:" .. string.format("%.0f%%", new_val * 100))
       end
     end
 
   elseif current_page == 4 then -- MOD
     if k3_held then
-      -- ALT: E2=bez tension, E3=lfo freq
       if n == 2 then user_delta("bez_tension", d * 0.03)
       elseif n == 3 then
         local f = params:get("lfo_freq")
         user_set("lfo_freq", util.clamp(f * (1 + d * 0.05), 0.01, 10))
       end
     else
-      -- E2=select route, E3=route depth (the power knob)
       if n == 2 then
         selected_route = util.clamp(selected_route + d, 1, #MOD_ROUTES)
         flash(MOD_ROUTES[selected_route].name)
@@ -606,22 +721,13 @@ function enc(n, d)
     end
 
   elseif current_page == 5 then -- ASSIST
-    if k3_held then
-      -- ALT: E2=cycle assistant, E3=not used
-      if n == 2 then
-        selected_assistant = util.clamp(selected_assistant + d, 1, 3)
-        flash(ASSISTANT_NAMES[selected_assistant])
-      end
-    else
-      -- E2=select assistant, E3=intensity
-      if n == 2 then
-        selected_assistant = util.clamp(selected_assistant + d, 1, 3)
-        flash(ASSISTANT_NAMES[selected_assistant])
-      elseif n == 3 then
-        assistant_intensity[selected_assistant] = util.clamp(
-          assistant_intensity[selected_assistant] + d * 0.03, 0, 1)
-        flash(string.format("%.0f%%", assistant_intensity[selected_assistant] * 100))
-      end
+    if n == 2 then
+      selected_assistant = util.clamp(selected_assistant + d, 1, 3)
+      flash(ASSISTANT_NAMES[selected_assistant])
+    elseif n == 3 then
+      assistant_intensity[selected_assistant] = util.clamp(
+        assistant_intensity[selected_assistant] + d * 0.03, 0, 1)
+      flash(string.format("%.0f%%", assistant_intensity[selected_assistant] * 100))
     end
 
   elseif current_page == 6 then -- AUTO
@@ -632,14 +738,12 @@ function enc(n, d)
       if n == 2 then
         robot_profile = util.clamp(robot_profile + d, 1, #robot.profiles)
         params:set("robot_profile", robot_profile)
-        -- update explorer personality if running
-        if explorer_on then
-          stop_explorer()
-          start_explorer()
-        end
+        if explorer_on then stop_explorer(); start_explorer() end
         flash(robot.profiles[robot_profile].name)
       elseif n == 3 then
-        user_delta("reverb_mix", d * 0.02)
+        -- conductor intensity multiplier
+        conductor_intensity_mult = util.clamp(conductor_intensity_mult + d * 0.05, 0, 2)
+        flash("INT:" .. string.format("%.0f%%", conductor_intensity_mult * 100))
       end
     end
   end
@@ -655,35 +759,28 @@ function key(n, z)
     else
       k3_held = false
       if os.clock() - k3_press_time < 0.3 then
-        -- TAP actions
         if current_page == 1 then
-          -- randomize selected track pattern
           local sc = tracks._scale_notes or scale_notes
           if #sc > 0 then
             evo.generate_pattern(tracks, selected_track, sc, 0.4 + math.random() * 0.4, 0.3, 1.0)
           end
           flash("RANDOM")
         elseif current_page == 2 then
-          -- cycle track
           selected_track = (selected_track % NUM_TRACKS) + 1
           flash(TRACK_NAMES[selected_track])
         elseif current_page == 3 then
-          -- cycle track on mixer
           selected_track = (selected_track % NUM_TRACKS) + 1
           flash(TRACK_NAMES[selected_track])
         elseif current_page == 4 then
-          -- burst randomize bezier + crank a random mod route
           bez.randomize()
           local ri = math.random(1, #MOD_ROUTES)
           mod_amounts[ri] = util.clamp(mod_amounts[ri] + 0.2, 0, 1)
           params:set("mod_" .. ri, mod_amounts[ri])
           flash("BURST")
         elseif current_page == 5 then
-          -- cycle selected assistant
           selected_assistant = (selected_assistant % 3) + 1
           flash(ASSISTANT_NAMES[selected_assistant])
         elseif current_page == 6 then
-          -- toggle explorer
           if explorer_on then stop_explorer() else start_explorer() end
           flash(explorer_on and "EXPLORE" or "MANUAL")
         end
@@ -698,6 +795,7 @@ end
 
 function grid_key(x, y, z)
   if y >= 1 and y <= 4 then
+    -- step toggles
     if z == 1 and x <= tracks[y].num_steps then
       tracks[y].steps[x].on = not tracks[y].steps[x].on
       selected_track = y; selected_step = x
@@ -705,9 +803,26 @@ function grid_key(x, y, z)
     elseif z == 0 then
       held_steps[y..","..x] = nil
     end
-  elseif y >= 5 and y <= 8 and z == 1 then
+  elseif y == 5 and z == 1 and x <= 4 then
+    -- mute toggles
+    track_mute[x] = not track_mute[x]
+    flash(TRACK_SHORT[x] .. (track_mute[x] and " MUTE" or " ON"))
+  elseif y == 6 and z == 1 and x <= 4 then
+    -- solo toggles
+    track_solo[x] = not track_solo[x]
+    flash(TRACK_SHORT[x] .. (track_solo[x] and " SOLO" or " OFF"))
+  elseif y == 7 and z == 1 and x <= 8 then
+    -- save snapshot (row 7)
+    save_snapshot(x)
+    flash("SAVE " .. x)
+  elseif y == 8 and z == 1 and x <= 8 then
+    -- load snapshot (row 8)
+    if load_snapshot(x) then flash("LOAD " .. x)
+    else flash("EMPTY") end
+  elseif y >= 5 and y <= 8 and z == 1 and x > 8 then
+    -- note keyboard (right half of bottom rows)
     local octave = 5 - (y - 5)
-    local target = scale_notes[1] + (octave - 1) * 12 + (x - 1) * 2
+    local target = scale_notes[1] + (octave - 1) * 12 + (x - 9) * 2
     target = musicutil.snap_note_to_array(util.clamp(target, 24, 96), scale_notes)
     local assigned = false
     for kid, _ in pairs(held_steps) do
@@ -729,6 +844,7 @@ end
 
 function grid_redraw()
   g:all(0)
+  -- rows 1-4: steps
   for t = 1, 4 do
     local ns = tracks[t].num_steps
     local tpos = tracks[t].position
@@ -743,8 +859,18 @@ function grid_redraw()
       g:led(s, t, br)
     end
   end
+  -- row 5: mutes (cols 1-4)
+  for t = 1, 4 do g:led(t, 5, track_mute[t] and 15 or 3) end
+  -- row 6: solos (cols 1-4)
+  for t = 1, 4 do g:led(t, 6, track_solo[t] and 15 or 3) end
+  -- rows 7-8: snapshots (cols 1-8)
+  for x = 1, 8 do
+    g:led(x, 7, snapshots[x] and 8 or 2)  -- save row
+    g:led(x, 8, snapshots[x] and 6 or 1)  -- load row
+  end
+  -- rows 5-8 cols 9-16: note keyboard
   for y = 5, 8 do
-    for x = 1, 16 do g:led(x, y, (x % 5 == 1) and 4 or 2) end
+    for x = 9, 16 do g:led(x, y, ((x-9) % 5 == 0) and 4 or 2) end
   end
   g:refresh()
 end
@@ -752,26 +878,17 @@ end
 -- ======== SCREEN DRAWING ========
 
 local function draw_header(name)
-  screen.level(15)
-  screen.font_size(8)
-  screen.move(2, 8)
-  screen.text(name)
-  -- page dots
+  screen.level(15); screen.font_size(8)
+  screen.move(2, 8); screen.text(name)
   for i = 1, #PAGES do
     screen.level(i == current_page and 15 or 3)
-    screen.rect(44 + (i-1)*6, 3, 4, 4)
-    screen.fill()
+    screen.rect(44 + (i-1)*5, 3, 3, 4); screen.fill()
   end
-  if k3_held then
-    screen.level(15); screen.move(98, 8); screen.text("ALT")
-  end
-  -- param flash overlay
+  if k3_held then screen.level(15); screen.move(98, 8); screen.text("ALT") end
   if param_flash > 0.2 then
     screen.level(math.floor(param_flash * 12))
-    screen.move(112, 8)
-    screen.text_right(param_flash_name)
+    screen.move(126, 8); screen.text_right(param_flash_name)
   end
-  -- user override dot
   if explorer_on and evo.user_override_count() > 0 then
     screen.level(12); screen.rect(126, 1, 2, 2); screen.fill()
   end
@@ -780,9 +897,7 @@ end
 local function draw_step_bar()
   if not playing then
     screen.level(3); screen.move(2, 63); screen.text("K2:play")
-    if explorer_on then
-      screen.level(12); screen.move(70, 63); screen.text("EXPLORE")
-    end
+    if explorer_on then screen.level(12); screen.move(70, 63); screen.text("EXPLORE") end
     return
   end
   local st = tracks[selected_track]
@@ -795,25 +910,21 @@ local function draw_step_bar()
     elseif fl > 0.2 then screen.level(math.floor(4 + fl * 8))
     elseif step.on then screen.level(4)
     else screen.level(1) end
-    screen.rect(x, 60, w, 3)
-    screen.fill()
+    screen.rect(x, 60, w, 3); screen.fill()
   end
 end
 
--- ---- PAGE 1: SEQ ----
-
+-- PAGE 1: SEQ
 local function draw_seq_page()
-  -- header uses track name instead of "SEQ"
   draw_header(TRACK_NAMES[selected_track])
 
-  -- full 4-track step display (12px per row), polymetric
   for t = 1, NUM_TRACKS do
     local y0 = 10 + (t-1) * 12
     local is_sel = (t == selected_track)
     local ns = tracks[t].num_steps
     local tpos = tracks[t].position
+    local muted = not is_track_audible(t)
 
-    -- show track length indicator
     screen.level(is_sel and 6 or 2)
     screen.move(ns * 8, y0); screen.line(ns * 8, y0 + 10); screen.stroke()
 
@@ -825,241 +936,149 @@ local function draw_seq_page()
       local is_cur = (is_sel and s == selected_step)
       local fl = step_flash[t][s] or 0
 
-      if not in_range then
-        -- beyond track length: invisible
-      else
+      if in_range then
         local max_h = 10
         local h = stp.on and math.max(3, math.floor(stp.vel * max_h)) or max_h
         local y_off = max_h - h
 
         local lvl
-        if is_play and stp.on then lvl = 15
+        if muted then lvl = stp.on and 2 or 0
+        elseif is_play and stp.on then lvl = 15
         elseif is_play then lvl = is_sel and 7 or 4
         elseif fl > 0.2 then lvl = math.floor(5 + fl * 8)
         elseif stp.on then lvl = is_sel and 10 or 5
         else lvl = is_sel and 3 or 1 end
 
-        screen.level(lvl)
-        if stp.on or is_play then
-          screen.rect(x + 1, y0 + y_off, 6, h)
-          screen.fill()
-        else
-          screen.rect(x + 1, y0, 6, max_h)
-          screen.stroke()
+        if lvl > 0 then
+          screen.level(lvl)
+          if stp.on or is_play then
+            screen.rect(x + 1, y0 + y_off, 6, h); screen.fill()
+          else
+            screen.rect(x + 1, y0, 6, max_h); screen.stroke()
+          end
         end
       end
 
-      -- selected cell: bright blinking outline
       if is_cur and in_range then
-        screen.level(15)
-        screen.rect(x, y0 - 1, 8, 12)
-        screen.stroke()
+        screen.level(15); screen.rect(x, y0 - 1, 8, 12); screen.stroke()
       end
     end
   end
 
-  -- info bar
   local step = tracks[selected_track].steps[selected_step]
   local nn = musicutil.note_num_to_name(step.note, true)
   screen.level(10); screen.move(0, 63)
   screen.text(TRACK_SHORT[selected_track] .. " " .. selected_step .. "/" .. tracks[selected_track].num_steps .. ":" .. nn)
-  if step.on then
-    screen.level(6); screen.move(68, 63)
-    screen.text("v" .. string.format("%.0f", step.vel * 100))
+  local prob = step.prob or 100
+  if prob < 100 then
+    screen.level(6); screen.move(72, 63); screen.text("p" .. prob .. "%")
   end
   screen.level(playing and 15 or 3); screen.move(124, 63); screen.text_right(playing and ">" or "||")
 end
 
--- ---- PAGE 2: VOICE ----
-
+-- PAGE 2: VOICE
 local function draw_voice_page()
   draw_header("VOICE")
-
   local t = tracks[selected_track]
 
-  -- track name big
   screen.level(15); screen.font_size(16)
-  screen.move(64, 24)
-  screen.text_center(TRACK_NAMES[selected_track])
+  screen.move(64, 24); screen.text_center(TRACK_NAMES[selected_track])
   screen.font_size(8)
 
-  -- filter curve visualization (simple LP response)
-  local cut_norm = math.log(t.cutoff / 30) / math.log(12000 / 30) -- 0-1
+  -- scale display
+  screen.level(6); screen.move(2, 33)
+  screen.text(musicutil.note_num_to_name(root_note, true) .. " " .. SCALE_SHORT[scale_type])
+
+  -- division display
+  screen.move(90, 33); screen.text(DIVISIONS[t.division][1])
+
+  -- filter curve
+  local cut_norm = math.log(math.max(t.cutoff,30) / 30) / math.log(12000 / 30)
   local res_h = t.res * 12
   local cx = 4 + cut_norm * 120
   screen.level(6)
-  -- flat line before cutoff
-  screen.move(4, 36)
-  screen.line(math.max(4, cx - 8), 36)
-  -- resonance peak
-  screen.line(cx, 36 - res_h)
-  -- rolloff after cutoff
-  screen.line(math.min(124, cx + 20), 42)
-  screen.line(124, 44)
+  screen.move(4, 40); screen.line(math.max(4, cx-8), 40)
+  screen.line(cx, 40 - res_h)
+  screen.line(math.min(124, cx+20), 46); screen.line(124, 48)
   screen.stroke()
-  -- cutoff position marker
-  screen.level(12)
-  screen.move(cx, 44); screen.line(cx, 46); screen.stroke()
+  screen.level(12); screen.move(cx, 48); screen.line(cx, 50); screen.stroke()
 
-  -- param readouts (two columns)
-  screen.font_size(8)
-
-  -- left: E2 param + ALT E2 param
-  screen.level(k3_held and 5 or 10)
-  screen.move(2, 52)
+  screen.level(k3_held and 5 or 10); screen.move(2, 56)
   screen.text("cut:" .. string.format("%.0f", t.cutoff))
-
-  screen.level(k3_held and 10 or 5)
-  screen.move(2, 60)
+  screen.level(k3_held and 10 or 5); screen.move(2, 63)
   screen.text("res:" .. string.format("%.2f", t.res))
 
-  -- right: E3 param + ALT E3 param
-  screen.level(k3_held and 5 or 10)
-  screen.move(68, 52)
+  screen.level(k3_held and 5 or 10); screen.move(68, 56)
   if selected_track == 1 then screen.text("sprd:" .. string.format("%.2f", t.spread or 0))
   elseif selected_track == 2 then screen.text("acnt:" .. string.format("%.2f", t.accent or 0))
   elseif selected_track == 3 then screen.text("mrph:" .. string.format("%.2f", t.morph or 0))
   elseif selected_track == 4 then
     screen.text("eng:" .. ({"PLS","FM","WAV","NOI"})[(t.engine_sel or 0) + 1])
   end
-
-  screen.level(k3_held and 10 or 5)
-  screen.move(68, 60)
-  if selected_track == 1 then screen.text("brt:" .. string.format("%.2f", t.brightness or 0))
-  elseif selected_track == 2 then screen.text("gate:" .. string.format("%.2f", t.gate))
-  elseif selected_track == 3 then screen.text("fm:" .. string.format("%.2f", t.fmamt or 0))
-  elseif selected_track == 4 then screen.text("bits:" .. string.format("%.0f", t.bits or 10))
-  end
 end
 
--- ---- PAGE 3: MOD ----
-
-local function draw_mod_page()
+-- PAGE 3: MIX
+local function draw_mix_page()
   draw_header("MIX")
 
-  -- studio wall: 4 channel strips + master
-  local ch_w = 22
-  local ch_h = 46
-  local gap = 4
-  local start_x = 2
-  local y_top = 11
+  local ch_w = 22; local ch_h = 46; local gap = 4; local start_x = 2; local y_top = 11
 
   for t = 1, 4 do
     local x = start_x + (t-1) * (ch_w + gap)
     local is_sel = (t == selected_track)
     local level = tracks[t].level
     local fill_h = math.floor(level * ch_h)
+    local muted = not is_track_audible(t)
 
-    -- channel strip background
-    screen.level(1)
-    screen.rect(x, y_top, ch_w, ch_h)
-    screen.fill()
+    screen.level(1); screen.rect(x, y_top, ch_w, ch_h); screen.fill()
+    screen.level(3); screen.move(x+ch_w/2, y_top+2); screen.line(x+ch_w/2, y_top+ch_h-2); screen.stroke()
 
-    -- fader groove (center line)
-    screen.level(3)
-    screen.move(x + ch_w/2, y_top + 2)
-    screen.line(x + ch_w/2, y_top + ch_h - 2)
-    screen.stroke()
-
-    -- fader fill (from bottom, graduated brightness)
     for row = 0, fill_h - 1 do
       local fy = y_top + ch_h - 1 - row
       local grad = math.floor(3 + (row / ch_h) * 9)
       if is_sel then grad = grad + 3 end
+      if muted then grad = math.floor(grad * 0.3) end
       screen.level(math.min(grad, 15))
-      screen.rect(x + 3, fy, ch_w - 6, 1)
-      screen.fill()
+      screen.rect(x+3, fy, ch_w-6, 1); screen.fill()
     end
 
-    -- fader knob position (bright line)
     local knob_y = y_top + ch_h - fill_h
     screen.level(is_sel and 15 or 10)
-    screen.rect(x + 1, knob_y - 1, ch_w - 2, 3)
-    screen.fill()
+    screen.rect(x+1, knob_y-1, ch_w-2, 3); screen.fill()
 
-    -- VU meter: cutoff as activity indicator (right edge)
-    local cut_norm = math.log(math.max(tracks[t].cutoff, 30) / 30) / math.log(12000 / 30)
-    local vu_h = math.floor(cut_norm * (ch_h - 4))
-    for row = 0, vu_h - 1 do
-      local vy = y_top + ch_h - 3 - row
-      local vu_bright = row > (ch_h * 0.7) and 15 or (row > (ch_h * 0.5) and 10 or 6)
-      screen.level(vu_bright)
-      screen.rect(x + ch_w - 2, vy, 1, 1)
-      screen.fill()
+    -- mute indicator
+    if muted then
+      screen.level(8); screen.move(x+ch_w/2, y_top+ch_h/2+3); screen.text_center("M")
     end
 
-    -- mod activity shimmer (left edge)
-    local total_mod = 0
-    for i, route in ipairs(MOD_ROUTES) do
-      if route.track == t and mod_amounts[i] > 0.01 then
-        total_mod = total_mod + math.abs(mod_values[i] or 0)
-      end
-    end
-    if total_mod > 0.03 then
-      local mod_h = math.floor(total_mod * ch_h * 0.8)
-      for row = 0, mod_h - 1 do
-        if math.random() < 0.6 then
-          screen.level(math.floor(4 + total_mod * 8))
-          screen.rect(x + 1, y_top + ch_h - 3 - row, 1, 1)
-          screen.fill()
-        end
-      end
-    end
-
-    -- track name
     screen.level(is_sel and 15 or 6)
-    screen.move(x + ch_w/2, y_top + ch_h + 7)
-    screen.text_center(TRACK_SHORT[t])
+    screen.move(x+ch_w/2, y_top+ch_h+7); screen.text_center(TRACK_SHORT[t])
   end
 
-  -- master strip (reverb)
+  -- reverb
   local mx = start_x + 4 * (ch_w + gap)
   local rev = params:get("reverb_mix")
   local rev_h = math.floor(rev * ch_h)
-
-  screen.level(1)
-  screen.rect(mx, y_top, 18, ch_h)
-  screen.fill()
-
-  -- master fader groove
-  screen.level(3)
-  screen.move(mx + 9, y_top + 2)
-  screen.line(mx + 9, y_top + ch_h - 2)
-  screen.stroke()
-
-  -- master fill
+  screen.level(1); screen.rect(mx, y_top, 18, ch_h); screen.fill()
+  screen.level(3); screen.move(mx+9, y_top+2); screen.line(mx+9, y_top+ch_h-2); screen.stroke()
   for row = 0, rev_h - 1 do
-    local fy = y_top + ch_h - 1 - row
     screen.level(math.floor(3 + (row / ch_h) * 8))
-    screen.rect(mx + 4, fy, 10, 1)
-    screen.fill()
+    screen.rect(mx+4, y_top+ch_h-1-row, 10, 1); screen.fill()
   end
+  screen.level(12); screen.rect(mx+2, y_top+ch_h-rev_h-1, 14, 3); screen.fill()
+  screen.level(8); screen.move(mx+9, y_top+ch_h+7); screen.text_center("REV")
 
-  -- master knob
-  local mk_y = y_top + ch_h - rev_h
-  screen.level(12)
-  screen.rect(mx + 2, mk_y - 1, 14, 3)
-  screen.fill()
-
-  -- master label
-  screen.level(8)
-  screen.move(mx + 9, y_top + ch_h + 7)
-  screen.text_center("REV")
-
-  -- reverb room/damp indicators (tiny)
-  screen.level(4)
-  screen.move(mx, y_top + ch_h + 13)
-  screen.text(string.format("%.0f", params:get("reverb_room") * 100))
+  -- swing indicator
+  if swing_amount > 0 then
+    screen.level(5); screen.move(mx, y_top+ch_h+13); screen.text("sw" .. swing_amount)
+  end
 end
 
--- ---- PAGE 4: MOD ----
-
-local function draw_crazy_mod_page()
+-- PAGE 4: MOD
+local function draw_mod_page()
   draw_header("MOD")
 
-  -- full-width bezier waveforms stacked, alive and moving
   local curves = {"curve1", "curve2", "curve3"}
-  local curve_labels = {"BZ1", "BZ2", "BZ3"}
   for ci, cname in ipairs(curves) do
     local history, idx = bez.get_history(cname)
     local y_center = 14 + (ci-1) * 8
@@ -1073,45 +1092,28 @@ local function draw_crazy_mod_page()
     screen.stroke()
   end
 
-  -- route matrix: 6 routes as horizontal animated bars
   for i, route in ipairs(MOD_ROUTES) do
     local y = 34 + (i-1) * 5
     local is_sel = (i == selected_route)
     local amt = mod_amounts[i]
     local mv = mod_values[i] or 0
 
-    -- label
-    screen.level(is_sel and 15 or 4)
-    screen.move(0, y + 4)
-    screen.text(route.name:sub(1, 7))
-
-    -- amount bar
-    local bar_x = 42
-    local bar_max = 84
-    screen.level(2)
-    screen.rect(bar_x, y, bar_max, 4)
-    screen.stroke()
-
-    -- fill: amount
+    screen.level(is_sel and 15 or 4); screen.move(0, y+4); screen.text(route.name:sub(1,7))
+    local bar_x = 42; local bar_max = 84
+    screen.level(2); screen.rect(bar_x, y, bar_max, 4); screen.stroke()
     if amt > 0.01 then
-      screen.level(is_sel and 8 or 4)
-      screen.rect(bar_x, y, math.floor(amt * bar_max), 4)
-      screen.fill()
+      screen.level(is_sel and 8 or 4); screen.rect(bar_x, y, math.floor(amt*bar_max), 4); screen.fill()
     end
-
-    -- live pulse: modulation value flickers on top
     if math.abs(mv) > 0.01 then
       local center = bar_x + math.floor(bar_max * 0.5)
-      local pulse_w = math.floor(math.abs(mv) * bar_max * 0.5)
+      local pw = math.floor(math.abs(mv) * bar_max * 0.5)
       screen.level(math.floor(6 + math.abs(mv) * 9))
-      screen.rect(center, y, pulse_w * (mv > 0 and 1 or -1), 4)
-      screen.fill()
+      screen.rect(center, y, pw * (mv > 0 and 1 or -1), 4); screen.fill()
     end
   end
 end
 
--- ---- PAGE 5: ASSIST ----
-
+-- PAGE 5: ASSIST
 local function draw_assist_page()
   draw_header("ASSIST")
 
@@ -1125,93 +1127,62 @@ local function draw_assist_page()
     local inten = assistant_intensity[a]
     local act = assistant_activity[a]
 
-    -- name
     screen.level(is_sel and 15 or 6)
     screen.font_size(is_sel and 16 or 8)
-    screen.move(2, y + (is_sel and 12 or 8))
-    screen.text(names[a])
+    screen.move(2, y + (is_sel and 12 or 8)); screen.text(names[a])
     screen.font_size(8)
 
-    -- description
-    screen.level(4)
-    screen.move(is_sel and 68 or 56, y + 5)
-    screen.text(descs[a])
+    screen.level(4); screen.move(is_sel and 68 or 56, y+5); screen.text(descs[a])
 
-    -- intensity bar
-    local bar_x = is_sel and 68 or 56
-    local bar_w = 58
-    local fill_w = math.floor(inten * bar_w)
-
-    screen.level(2)
-    screen.rect(bar_x, y + 8, bar_w, 5)
-    screen.stroke()
-
+    local bar_x = is_sel and 68 or 56; local bar_w = 58
+    screen.level(2); screen.rect(bar_x, y+8, bar_w, 5); screen.stroke()
     screen.level(is_sel and 10 or 5)
-    screen.rect(bar_x, y + 8, fill_w, 5)
-    screen.fill()
+    screen.rect(bar_x, y+8, math.floor(inten*bar_w), 5); screen.fill()
 
-    -- activity pulse: flickers when assistant acts
     if act > 0.1 then
       screen.level(math.floor(act * colors[a]))
-      screen.rect(bar_x + fill_w - 3, y + 7, 6, 7)
-      screen.fill()
+      screen.rect(bar_x + math.floor(inten*bar_w) - 3, y+7, 6, 7); screen.fill()
     end
 
-    -- percentage
     screen.level(is_sel and 12 or 4)
-    screen.move(bar_x + bar_w + 2, y + 12)
-    screen.text(string.format("%.0f", inten * 100))
+    screen.move(bar_x + bar_w + 2, y+12); screen.text(string.format("%.0f", inten*100))
   end
 
   draw_step_bar()
 end
 
--- ---- PAGE 6: AUTO ----
-
+-- PAGE 6: AUTO
 local function draw_auto_page()
   draw_header("AUTO")
 
   local p = robot.profiles[robot_profile]
   local energy = explorer_on and song_engine.get_energy() or 0.3
 
-  -- robot avatar (left side)
   robot.draw(robot_profile, 22, 36, energy, explorer_on)
 
-  -- profile info (right side)
   screen.level(15); screen.font_size(16)
-  screen.move(48, 22)
-  screen.text(p.name)
+  screen.move(48, 22); screen.text(p.name)
   screen.font_size(8)
 
-  screen.level(6)
-  screen.move(48, 32)
-  screen.text(p.desc)
+  screen.level(6); screen.move(48, 32); screen.text(p.desc)
+
+  -- conductor intensity
+  screen.level(8); screen.move(48, 42)
+  screen.text("INT:" .. string.format("%.0f%%", conductor_intensity_mult * 100))
 
   if explorer_on then
     local section = song_engine.get_section_name()
     local progress = song_engine.get_progress()
 
-    -- section name
-    screen.level(12); screen.move(48, 38)
-    screen.text(section)
+    screen.level(12); screen.move(90, 42); screen.text(section)
 
-    -- progress bar
-    screen.level(3)
-    screen.rect(48, 41, 78, 5); screen.stroke()
-    screen.level(10)
-    screen.rect(49, 42, progress * 76, 3); screen.fill()
+    screen.level(3); screen.rect(48, 46, 78, 4); screen.stroke()
+    screen.level(10); screen.rect(49, 47, progress * 76, 2); screen.fill()
 
-    -- energy bar
     screen.level(math.floor(energy * 15))
-    screen.rect(48, 50, math.floor(energy * 50), 3); screen.fill()
-    screen.level(5)
-    screen.move(100, 53)
-    screen.text("E:" .. string.format("%.0f", energy * 100))
+    screen.rect(48, 53, math.floor(energy * 50), 3); screen.fill()
   else
-    screen.level(4); screen.move(48, 42)
-    screen.text("K3: explore")
-    screen.level(3); screen.move(48, 52)
-    screen.text("E2: profile")
+    screen.level(4); screen.move(48, 52); screen.text("K3: explore")
   end
 
   draw_step_bar()
@@ -1220,15 +1191,12 @@ end
 -- ======== REDRAW ========
 
 function redraw()
-  screen.clear()
-  screen.aa(0)
-  screen.font_face(1)
-  screen.font_size(8)
+  screen.clear(); screen.aa(0); screen.font_face(1); screen.font_size(8)
 
   if current_page == 1 then draw_seq_page()
   elseif current_page == 2 then draw_voice_page()
-  elseif current_page == 3 then draw_mod_page()
-  elseif current_page == 4 then draw_crazy_mod_page()
+  elseif current_page == 3 then draw_mix_page()
+  elseif current_page == 4 then draw_mod_page()
   elseif current_page == 5 then draw_assist_page()
   elseif current_page == 6 then draw_auto_page()
   end
