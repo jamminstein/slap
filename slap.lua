@@ -24,7 +24,7 @@ local robot = include("lib/robot")
 
 -- ======== CONSTANTS ========
 
-local PAGES = {"SEQ", "VOICE", "MIX", "AUTO"}
+local PAGES = {"SEQ", "VOICE", "MIX", "MOD", "AUTO"}
 local NUM_TRACKS = 4
 local MAX_STEPS = 24
 local TRACK_NAMES = {"MANTA", "ZKIT", "TOROID", "BZZT"}
@@ -480,13 +480,27 @@ function enc(n, d)
       end
     end
 
-  elseif current_page == 4 then -- AUTO
+  elseif current_page == 4 then -- MOD
     if k3_held then
-      if n == 2 then user_delta("xmod_speed", d * 0.02)
+      if n == 2 then user_delta("bez_tension", d * 0.03)
       elseif n == 3 then
         local f = params:get("lfo_freq")
         user_set("lfo_freq", util.clamp(f * (1 + d * 0.05), 0.01, 10))
       end
+    else
+      if n == 2 then
+        local spd = params:get("bez_speed")
+        user_set("bez_speed", util.clamp(spd * (1 + d * 0.05), 0.01, 3))
+      elseif n == 3 then
+        selected_route = util.clamp(selected_route + d, 1, #MOD_ROUTES)
+        flash(MOD_ROUTES[selected_route].name)
+      end
+    end
+
+  elseif current_page == 5 then -- AUTO
+    if k3_held then
+      if n == 2 then user_delta("xmod_speed", d * 0.02)
+      elseif n == 3 then user_delta("reverb_damp", d * 0.02) end
     else
       if n == 2 then
         robot_profile = util.clamp(robot_profile + d, 1, #robot.profiles)
@@ -531,6 +545,13 @@ function key(n, z)
           selected_track = (selected_track % NUM_TRACKS) + 1
           flash(TRACK_NAMES[selected_track])
         elseif current_page == 4 then
+          -- burst randomize bezier + crank a random mod route
+          bez.randomize()
+          local ri = math.random(1, #MOD_ROUTES)
+          mod_amounts[ri] = util.clamp(mod_amounts[ri] + 0.2, 0, 1)
+          params:set("mod_" .. ri, mod_amounts[ri])
+          flash("BURST")
+        elseif current_page == 5 then
           -- toggle explorer
           if explorer_on then stop_explorer() else start_explorer() end
           flash(explorer_on and "EXPLORE" or "MANUAL")
@@ -855,7 +876,65 @@ local function draw_mod_page()
   screen.text_center("R")
 end
 
--- ---- PAGE 4: AUTO ----
+-- ---- PAGE 4: MOD ----
+
+local function draw_crazy_mod_page()
+  draw_header("MOD")
+
+  -- full-width bezier waveforms stacked, alive and moving
+  local curves = {"curve1", "curve2", "curve3"}
+  local curve_labels = {"BZ1", "BZ2", "BZ3"}
+  for ci, cname in ipairs(curves) do
+    local history, idx = bez.get_history(cname)
+    local y_center = 14 + (ci-1) * 8
+    screen.level(4 + ci * 3)
+    for i = 1, 126 do
+      local hi = ((idx - 1 + math.floor(i * 0.5)) % 64) + 1
+      local val = history[hi] or 0
+      local py = y_center - val * 4
+      if i == 1 then screen.move(i, py) else screen.line(i, py) end
+    end
+    screen.stroke()
+  end
+
+  -- route matrix: 6 routes as horizontal animated bars
+  for i, route in ipairs(MOD_ROUTES) do
+    local y = 34 + (i-1) * 5
+    local is_sel = (i == selected_route)
+    local amt = mod_amounts[i]
+    local mv = mod_values[i] or 0
+
+    -- label
+    screen.level(is_sel and 15 or 4)
+    screen.move(0, y + 4)
+    screen.text(route.name:sub(1, 7))
+
+    -- amount bar
+    local bar_x = 42
+    local bar_max = 84
+    screen.level(2)
+    screen.rect(bar_x, y, bar_max, 4)
+    screen.stroke()
+
+    -- fill: amount
+    if amt > 0.01 then
+      screen.level(is_sel and 8 or 4)
+      screen.rect(bar_x, y, math.floor(amt * bar_max), 4)
+      screen.fill()
+    end
+
+    -- live pulse: modulation value flickers on top
+    if math.abs(mv) > 0.01 then
+      local center = bar_x + math.floor(bar_max * 0.5)
+      local pulse_w = math.floor(math.abs(mv) * bar_max * 0.5)
+      screen.level(math.floor(6 + math.abs(mv) * 9))
+      screen.rect(center, y, pulse_w * (mv > 0 and 1 or -1), 4)
+      screen.fill()
+    end
+  end
+end
+
+-- ---- PAGE 5: AUTO ----
 
 local function draw_auto_page()
   draw_header("AUTO")
@@ -917,7 +996,8 @@ function redraw()
   if current_page == 1 then draw_seq_page()
   elseif current_page == 2 then draw_voice_page()
   elseif current_page == 3 then draw_mod_page()
-  elseif current_page == 4 then draw_auto_page()
+  elseif current_page == 4 then draw_crazy_mod_page()
+  elseif current_page == 5 then draw_auto_page()
   end
 
   screen.update()
