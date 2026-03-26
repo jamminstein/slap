@@ -19,7 +19,7 @@ robot.profiles = {
     name = "MONONEON", desc = "unpredictable virtuoso",
     personality = 5,
     head = "square", eyes = "cross", mouth = "zigzag", feat = "sparks",
-    intensity_range = {0.4, 0.8},
+    intensity_range = {0.6, 0.95},
     style = {
       replace_one = 0.15, velocity_drift = 0.10, rotate = 0.15,
       thicken = 0.08, thin = 0.08, shift = 0.15,
@@ -43,7 +43,7 @@ robot.profiles = {
     name = "THUNDERCAT", desc = "jazzy dreamer",
     personality = 3,
     head = "pill", eyes = "round", mouth = "smile", feat = "ears",
-    intensity_range = {0.25, 0.6},
+    intensity_range = {0.45, 0.8},
     style = {
       replace_one = 0.30, velocity_drift = 0.20, rotate = 0.05,
       thicken = 0.12, thin = 0.05, shift = 0.12,
@@ -66,7 +66,7 @@ robot.profiles = {
     name = "THOM YORKE", desc = "angular glitch poet",
     personality = 5,
     head = "diamond", eyes = "line", mouth = "flat", feat = "orbit",
-    intensity_range = {0.2, 0.7},
+    intensity_range = {0.4, 0.85},
     style = {
       replace_one = 0.10, velocity_drift = 0.08, rotate = 0.20,
       thicken = 0.05, thin = 0.18, shift = 0.12,
@@ -90,7 +90,7 @@ robot.profiles = {
     name = "FLEA", desc = "explosive punk funk",
     personality = 4,
     head = "circle", eyes = "round", mouth = "zigzag", feat = "antenna",
-    intensity_range = {0.5, 0.9},
+    intensity_range = {0.65, 0.95},
     style = {
       replace_one = 0.10, velocity_drift = 0.05, rotate = 0.08,
       thicken = 0.25, thin = 0.03, shift = 0.08,
@@ -112,7 +112,7 @@ robot.profiles = {
     name = "BOOTSY", desc = "space funk groove",
     personality = 2,
     head = "pill", eyes = "round", mouth = "smile", feat = "halo",
-    intensity_range = {0.15, 0.45},
+    intensity_range = {0.35, 0.7},
     style = {
       replace_one = 0.08, velocity_drift = 0.30, rotate = 0.05,
       thicken = 0.05, thin = 0.05, shift = 0.05,
@@ -134,7 +134,7 @@ robot.profiles = {
     name = "HERMETO", desc = "total genius madman",
     personality = 5,
     head = "circle", eyes = "cross", mouth = "smile", feat = "sparks",
-    intensity_range = {0.5, 0.95},
+    intensity_range = {0.7, 0.99},
     style = {
       replace_one = 0.15, velocity_drift = 0.08, rotate = 0.12,
       thicken = 0.10, thin = 0.10, shift = 0.12,

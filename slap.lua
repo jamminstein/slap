@@ -24,7 +24,7 @@ local robot = include("lib/robot")
 
 -- ======== CONSTANTS ========
 
-local PAGES = {"SEQ", "VOICE", "MOD", "AUTO"}
+local PAGES = {"SEQ", "VOICE", "MIX", "AUTO"}
 local NUM_TRACKS = 4
 local MAX_STEPS = 24
 local TRACK_NAMES = {"MANTA", "ZKIT", "TOROID", "BZZT"}
@@ -370,13 +370,11 @@ function start_sequencer()
         tracks[t].position = (tracks[t].position % tracks[t].num_steps) + 1
         trigger_note(t)
       end
-      -- conductor: the maestro touches things based on their style
+      -- conductor: the maestro touches things EVERY TICK
       conductor_tick_count = conductor_tick_count + 1
-      if conductor_tick_count % 2 == 0 then  -- every half bar
-        local energy = explorer_on and song_engine.get_energy() or 0.3
-        local profile = robot.profiles[robot_profile]
-        evo.conductor_tick(tracks, energy, profile)
-      end
+      local energy = explorer_on and song_engine.get_energy() or 0.3
+      local profile = robot.profiles[robot_profile]
+      evo.conductor_tick(tracks, energy, profile)
     end
   end)
 end
@@ -468,20 +466,17 @@ function enc(n, d)
       end
     end
 
-  elseif current_page == 3 then -- MOD
+  elseif current_page == 3 then -- MIX
     if k3_held then
-      if n == 2 then
-        local spd = params:get("bez_speed")
-        user_set("bez_speed", util.clamp(spd * (1 + d * 0.05), 0.01, 3))
-      elseif n == 3 then
-        user_delta("bez_tension", d * 0.03)
-      end
+      -- ALT: E2=reverb room, E3=reverb damp
+      if n == 2 then user_delta("reverb_room", d * 0.02)
+      elseif n == 3 then user_delta("reverb_damp", d * 0.02) end
     else
+      -- E2=selected track level, E3=reverb mix (master)
       if n == 2 then
-        selected_route = util.clamp(selected_route + d, 1, #MOD_ROUTES)
-        flash(MOD_ROUTES[selected_route].name)
+        user_delta("t" .. selected_track .. "_level", d * 0.02)
       elseif n == 3 then
-        user_delta("mod_" .. selected_route, d * 0.02)
+        user_delta("reverb_mix", d * 0.02)
       end
     end
 
@@ -532,9 +527,9 @@ function key(n, z)
           selected_track = (selected_track % NUM_TRACKS) + 1
           flash(TRACK_NAMES[selected_track])
         elseif current_page == 3 then
-          -- randomize bezier
-          bez.randomize()
-          flash("BURST")
+          -- cycle track on mixer
+          selected_track = (selected_track % NUM_TRACKS) + 1
+          flash(TRACK_NAMES[selected_track])
         elseif current_page == 4 then
           -- toggle explorer
           if explorer_on then stop_explorer() else start_explorer() end
@@ -788,73 +783,76 @@ end
 -- ---- PAGE 3: MOD ----
 
 local function draw_mod_page()
-  draw_header("MOD")
+  draw_header("MIX")
 
-  -- bezier waveform across full width (single combined view)
-  local history, idx = bez.get_history("curve1")
-  screen.level(6)
-  for i = 1, 126 do
-    local hi = ((idx - 1 + math.floor(i * 0.5)) % 64) + 1
-    local val = history[hi] or 0
-    local py = 16 - val * 6
-    if i == 1 then screen.move(i, py) else screen.line(i, py) end
-  end
-  screen.stroke()
+  -- 4 vertical faders side by side
+  local fader_w = 24
+  local fader_h = 40
+  local gap = 6
+  local start_x = 4
 
-  -- 4 track rows: name | cutoff bar with live mod pulse | length
   for t = 1, 4 do
-    local y = 22 + (t-1) * 9
-    local cut_norm = math.log(math.max(tracks[t].cutoff, 30) / 30) / math.log(12000 / 30)
-    local bar_w = math.floor(cut_norm * 90)
+    local x = start_x + (t-1) * (fader_w + gap)
+    local y = 12
+    local is_sel = (t == selected_track)
+    local level = tracks[t].level
+    local fill_h = math.floor(level * fader_h)
 
-    -- track label
-    screen.level(t == selected_track and 12 or 5)
-    screen.move(0, y + 7)
-    screen.text(TRACK_SHORT[t])
-
-    -- cutoff bar background
-    screen.level(2)
-    screen.rect(20, y + 1, 90, 6)
+    -- fader track (outline)
+    screen.level(is_sel and 6 or 2)
+    screen.rect(x, y, fader_w, fader_h)
     screen.stroke()
 
-    -- cutoff bar fill
-    screen.level(t == selected_track and 8 or 4)
-    screen.rect(20, y + 1, bar_w, 6)
+    -- fader fill (from bottom)
+    screen.level(is_sel and 12 or 5)
+    screen.rect(x + 1, y + fader_h - fill_h, fader_w - 2, fill_h)
     screen.fill()
 
-    -- live mod pulse overlay (sum of all routes affecting this track)
+    -- live activity: cutoff as a bouncing line across the fader
+    local cut_norm = math.log(math.max(tracks[t].cutoff, 30) / 30) / math.log(12000 / 30)
+    local cut_y = y + fader_h - math.floor(cut_norm * fader_h)
+    screen.level(is_sel and 15 or 8)
+    screen.move(x + 2, cut_y)
+    screen.line(x + fader_w - 2, cut_y)
+    screen.stroke()
+
+    -- mod pulse: flickering brightness on the fader
     local total_mod = 0
     for i, route in ipairs(MOD_ROUTES) do
       if route.track == t and mod_amounts[i] > 0.01 then
-        total_mod = total_mod + (mod_values[i] or 0)
+        total_mod = total_mod + math.abs(mod_values[i] or 0)
       end
     end
-    if math.abs(total_mod) > 0.01 then
-      local pulse_x = 20 + bar_w
-      local pulse_w = math.floor(math.abs(total_mod) * 30)
-      screen.level(math.floor(8 + math.abs(total_mod) * 7))
-      if total_mod > 0 then
-        screen.rect(pulse_x, y + 1, math.min(pulse_w, 90 - bar_w), 6)
-      else
-        screen.rect(math.max(20, pulse_x - pulse_w), y + 1, pulse_w, 6)
-      end
+    if total_mod > 0.05 then
+      screen.level(math.floor(total_mod * 10))
+      screen.rect(x + 1, cut_y - 2, fader_w - 2, 4)
       screen.fill()
     end
 
-    -- track length
-    screen.level(4)
-    screen.move(114, y + 7)
-    screen.text(tostring(tracks[t].num_steps))
+    -- track name below
+    screen.level(is_sel and 15 or 6)
+    screen.move(x + fader_w / 2, y + fader_h + 8)
+    screen.text_center(TRACK_SHORT[t])
+
+    -- step count tiny
+    screen.level(3)
+    screen.move(x + fader_w / 2, y + fader_h + 14)
+    screen.text_center(tostring(tracks[t].num_steps))
   end
 
-  -- bottom: selected route + controls hint
-  local r = MOD_ROUTES[selected_route]
-  screen.level(12)
-  screen.move(0, 63)
-  screen.text(r.name .. " " .. string.format("%.0f%%", mod_amounts[selected_route] * 100))
+  -- master reverb bar (right side)
+  local rx = 120
+  local rev = params:get("reverb_mix")
+  local rev_h = math.floor(rev * fader_h)
+  screen.level(3)
+  screen.rect(rx, 12, 6, fader_h)
+  screen.stroke()
+  screen.level(8)
+  screen.rect(rx + 1, 12 + fader_h - rev_h, 4, rev_h)
+  screen.fill()
   screen.level(5)
-  screen.move(80, 63)
-  screen.text("E2:sel E3:amt")
+  screen.move(rx + 3, 12 + fader_h + 8)
+  screen.text_center("R")
 end
 
 -- ---- PAGE 4: AUTO ----
