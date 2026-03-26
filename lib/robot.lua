@@ -20,6 +20,7 @@ robot.profiles = {
     personality = 5,
     head = "square", eyes = "cross", mouth = "zigzag", feat = "sparks",
     intensity_range = {0.6, 0.95}, harmony_set = "chaos", harmony_chance = 0.06, home_tendency = 0.01,
+    default_timbre = 0, default_divisions = {1,2,2,1},
     default_mods = {0.4, 0.5, 0.3, 0.6, 0.3, 0.4},
     style = {
       replace_one = 0.15, velocity_drift = 0.10, rotate = 0.15,
@@ -52,6 +53,7 @@ robot.profiles = {
     personality = 3,
     head = "pill", eyes = "round", mouth = "smile", feat = "ears",
     intensity_range = {0.45, 0.8}, harmony_set = "jazz", harmony_chance = 0.05, home_tendency = 0.02,
+    default_timbre = 3, default_divisions = {3,2,2,2},
     default_mods = {0.2, 0.3, 0.4, 0.5, 0.2, 0.1},
     style = {
       replace_one = 0.30, velocity_drift = 0.20, rotate = 0.05,
@@ -79,6 +81,7 @@ robot.profiles = {
     personality = 5,
     head = "diamond", eyes = "line", mouth = "flat", feat = "orbit",
     intensity_range = {0.4, 0.85}, harmony_set = "world", harmony_chance = 0.04, home_tendency = 0.015,
+    default_timbre = 2, default_divisions = {3,2,2,1},
     default_mods = {0.3, 0.4, 0.5, 0.3, 0.2, 0.2},
     style = {
       replace_one = 0.10, velocity_drift = 0.08, rotate = 0.20,
@@ -108,6 +111,7 @@ robot.profiles = {
     personality = 4,
     head = "circle", eyes = "round", mouth = "zigzag", feat = "antenna",
     intensity_range = {0.65, 0.95}, harmony_set = "minimal", harmony_chance = 0.02, home_tendency = 0.03,
+    default_timbre = 4, default_divisions = {2,2,2,1},
     default_mods = {0.1, 0.5, 0.2, 0.1, 0.4, 0.1},
     style = {
       replace_one = 0.10, velocity_drift = 0.05, rotate = 0.08,
@@ -133,6 +137,7 @@ robot.profiles = {
     personality = 2,
     head = "pill", eyes = "round", mouth = "smile", feat = "halo",
     intensity_range = {0.35, 0.7}, harmony_set = "classical", harmony_chance = 0.03, home_tendency = 0.04,
+    default_timbre = 3, default_divisions = {3,2,2,2},
     default_mods = {0.2, 0.4, 0.2, 0.15, 0.2, 0.1},
     style = {
       replace_one = 0.08, velocity_drift = 0.30, rotate = 0.05,
@@ -159,6 +164,7 @@ robot.profiles = {
     personality = 5,
     head = "circle", eyes = "cross", mouth = "smile", feat = "sparks",
     intensity_range = {0.7, 0.99}, harmony_set = "chaos", harmony_chance = 0.08, home_tendency = 0.005,
+    default_timbre = 0, default_divisions = {3,2,2,1},
     default_mods = {0.5, 0.6, 0.5, 0.7, 0.4, 0.5},
     style = {
       replace_one = 0.15, velocity_drift = 0.08, rotate = 0.12,
@@ -201,6 +207,7 @@ robot.profiles = {
     personality = 2, -- zkit/acid (4/4 locked)
     head = "square", eyes = "line", mouth = "flat", feat = "antenna",
     intensity_range = {0.3, 0.6}, harmony_set = "minimal", harmony_chance = 0.02, home_tendency = 0.06,
+    default_timbre = 3, default_divisions = {2,2,2,2},
     default_mods = {0.15, 0.35, 0.2, 0.1, 0.2, 0.05},
     style = {
       -- heavy on ghost notes + velocity + note replacement. NO length changes.
@@ -232,6 +239,7 @@ robot.profiles = {
     personality = 2, lock_16 = true, requantize = true,
     head = "square", eyes = "dot", mouth = "flat", feat = "antenna",
     intensity_range = {0.1, 0.3}, harmony_set = "minimal", harmony_chance = 0.01, home_tendency = 0.08,
+    default_timbre = 3, default_divisions = {3,2,2,2},
     default_mods = {0.1, 0.15, 0.1, 0.05, 0.1, 0.05},
     style = {
       replace_one = 0.15, velocity_drift = 0.10, rotate = 0.0,
@@ -252,6 +260,7 @@ robot.profiles = {
     personality = 2, lock_16 = true, requantize = true,
     head = "circle", eyes = "round", mouth = "smile", feat = "halo",
     intensity_range = {0.25, 0.55}, harmony_set = "classical", harmony_chance = 0.03, home_tendency = 0.05,
+    default_timbre = 3, default_divisions = {3,2,2,2},
     default_mods = {0.25, 0.35, 0.3, 0.2, 0.15, 0.1},
     style = {
       replace_one = 0.15, velocity_drift = 0.20, rotate = 0.03,
@@ -278,6 +287,7 @@ robot.profiles = {
     personality = 4, lock_16 = true, requantize = true,
     head = "diamond", eyes = "dot", mouth = "none", feat = "drip",
     intensity_range = {0.3, 0.65}, harmony_set = "world", harmony_chance = 0.03, home_tendency = 0.03,
+    default_timbre = 4, default_divisions = {3,2,2,2},
     default_mods = {0.2, 0.3, 0.3, 0.2, 0.25, 0.15},
     style = {
       replace_one = 0.10, velocity_drift = 0.15, rotate = 0.05,
@@ -302,6 +312,7 @@ robot.profiles = {
     personality = 3, lock_16 = true, requantize = true,
     head = "circle", eyes = "round", mouth = "smile", feat = "sparks",
     intensity_range = {0.35, 0.7}, harmony_set = "jazz", harmony_chance = 0.05, home_tendency = 0.025,
+    default_timbre = 2, default_divisions = {2,2,2,1},
     default_mods = {0.3, 0.4, 0.5, 0.6, 0.3, 0.3},
     style = {
       replace_one = 0.30, velocity_drift = 0.10, rotate = 0.08,
@@ -329,6 +340,7 @@ robot.profiles = {
     personality = 4, lock_16 = true, requantize = true,
     head = "square", eyes = "line", mouth = "flat", feat = "orbit",
     intensity_range = {0.2, 0.5}, harmony_set = "minimal", harmony_chance = 0.01, home_tendency = 0.07,
+    default_timbre = 8, default_divisions = {3,2,2,2},
     default_mods = {0.1, 0.2, 0.15, 0.05, 0.15, 0.05},
     style = {
       replace_one = 0.08, velocity_drift = 0.12, rotate = 0.05,

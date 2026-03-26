@@ -133,13 +133,14 @@ function evo.pattern_mutate(tracks, track_idx, mutation_type, args)
   elseif mutation_type == "replace_one" then
     local scale_notes = args.scale_notes or {}
     if #scale_notes > 0 then
+      local fp = filter_pool(scale_notes, track_idx)
       local active = {}
       for i = 1, ns do
         if t.steps[i].on then table.insert(active, i) end
       end
-      if #active > 0 then
+      if #active > 0 and #fp > 0 then
         local idx = active[math.random(#active)]
-        t.steps[idx].note = scale_notes[math.random(#scale_notes)]
+        t.steps[idx].note = fp[math.random(#fp)]
       end
     end
 
@@ -148,6 +149,24 @@ function evo.pattern_mutate(tracks, track_idx, mutation_type, args)
       if t.steps[i].on then
         local drift = (math.random() - 0.5) * 0.15
         t.steps[i].vel = util.clamp(t.steps[i].vel + drift, 0.1, 1.0)
+      end
+    end
+
+  elseif mutation_type == "crescendo" then
+    -- ramp velocity from low to high across pattern
+    for i = 1, ns do
+      if t.steps[i].on then
+        local ramp = (i - 1) / math.max(ns - 1, 1)
+        t.steps[i].vel = util.clamp(0.2 + ramp * 0.7 + (math.random() - 0.5) * 0.1, 0.1, 1.0)
+      end
+    end
+
+  elseif mutation_type == "decrescendo" then
+    -- ramp velocity from high to low
+    for i = 1, ns do
+      if t.steps[i].on then
+        local ramp = 1 - (i - 1) / math.max(ns - 1, 1)
+        t.steps[i].vel = util.clamp(0.2 + ramp * 0.7 + (math.random() - 0.5) * 0.1, 0.1, 1.0)
       end
     end
 
@@ -192,14 +211,48 @@ function evo.pattern_mutate(tracks, track_idx, mutation_type, args)
   end
 end
 
+-- per-track pitch ranges (constrain to musical register)
+local TRACK_RANGES = {
+  {lo = 48, hi = 67},  -- track 1 (MANTA): C3-G4, pad range
+  {lo = 36, hi = 53},  -- track 2 (ZKIT): C2-F3, bass range
+  {lo = 55, hi = 79},  -- track 3 (TOROID): G3-G5, melody range
+  {lo = 36, hi = 84},  -- track 4 (BZZT): C2-C6, percussion (wider)
+}
+
+-- filter a note pool to a track's range
+local function filter_pool(pool, track_idx)
+  local range = TRACK_RANGES[track_idx] or {lo = 36, hi = 72}
+  local filtered = {}
+  for _, n in ipairs(pool) do
+    if n >= range.lo and n <= range.hi then
+      table.insert(filtered, n)
+    end
+  end
+  -- if nothing in range, use closest octave
+  if #filtered == 0 then
+    local center = math.floor((range.lo + range.hi) / 2)
+    for _, n in ipairs(pool) do
+      local adjusted = n
+      while adjusted < range.lo do adjusted = adjusted + 12 end
+      while adjusted > range.hi do adjusted = adjusted - 12 end
+      if adjusted >= range.lo and adjusted <= range.hi then
+        table.insert(filtered, adjusted)
+      end
+    end
+  end
+  if #filtered == 0 then return pool end
+  return filtered
+end
+
 -- generate a fresh pattern for a track from a note pool
 function evo.generate_pattern(tracks, track_idx, pool, density, vel_lo, vel_hi)
   local t = tracks[track_idx]
   if not t then return end
   local ns = t.num_steps or #t.steps
+  local fp = filter_pool(pool, track_idx)
   for i = 1, ns do
     if not t.steps[i] then t.steps[i] = {on = false, note = 60, vel = 0.8} end
-    t.steps[i].note = pool[math.random(#pool)]
+    t.steps[i].note = fp[math.random(#fp)]
     t.steps[i].vel = vel_lo + math.random() * (vel_hi - vel_lo)
     t.steps[i].on = math.random() < density
   end
@@ -340,14 +393,16 @@ end
 
 local ACTION_NAMES = {
   "replace_one", "velocity_drift", "rotate", "thicken",
-  "thin", "shift", "extend", "truncate", "accent", "ghost"
+  "thin", "shift", "extend", "truncate", "accent", "ghost",
+  "crescendo", "decrescendo"
 }
 
 -- default fallback weights
 local DEFAULT_STYLE = {
-  replace_one = 0.15, velocity_drift = 0.15, rotate = 0.10,
-  thicken = 0.10, thin = 0.08, shift = 0.08,
-  extend = 0.05, truncate = 0.04, accent = 0.12, ghost = 0.13,
+  replace_one = 0.13, velocity_drift = 0.12, rotate = 0.08,
+  thicken = 0.08, thin = 0.07, shift = 0.07,
+  extend = 0.04, truncate = 0.03, accent = 0.10, ghost = 0.12,
+  crescendo = 0.08, decrescendo = 0.08,
 }
 
 function evo.conductor_tick(tracks, energy, conductor_profile)

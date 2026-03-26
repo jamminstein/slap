@@ -430,13 +430,29 @@ function init_params()
       end
       evo.save_home(tracks)
     end
-    -- apply conductor's default mod routes (bezier active from start)
     local prof = robot.profiles[v]
-    if prof and prof.default_mods then
-      for i, amt in ipairs(prof.default_mods) do
-        if i <= #MOD_ROUTES then
-          mod_amounts[i] = amt
-          pcall(function() params:set("mod_" .. i, amt) end)
+    if prof then
+      -- apply default mod routes
+      if prof.default_mods then
+        for i, amt in ipairs(prof.default_mods) do
+          if i <= #MOD_ROUTES then
+            mod_amounts[i] = amt
+            pcall(function() params:set("mod_" .. i, amt) end)
+          end
+        end
+      end
+      -- apply default timbre
+      if prof.default_timbre and prof.default_timbre > 0 and prof.default_timbre <= #TIMBRES then
+        current_timbre = prof.default_timbre
+        apply_timbre(current_timbre)
+      end
+      -- apply default clock divisions
+      if prof.default_divisions then
+        for i, div in ipairs(prof.default_divisions) do
+          if tracks[i] then
+            tracks[i].division = div
+            pcall(function() params:set("t" .. i .. "_division", div) end)
+          end
         end
       end
     end
