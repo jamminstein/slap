@@ -315,6 +315,22 @@ function evo.conductor_tick(tracks, energy, conductor_profile)
       ::skip_knob::
     end
   end
+
+  -- ======== HARMONIC MOVES ========
+  -- occasional key/scale changes based on conductor's harmony_set
+  local harm_set = conductor_profile and conductor_profile.harmony_set
+  local harm_chance = conductor_profile and conductor_profile.harmony_chance or 0.03
+  if harm_set and math.random() < harm_chance * intensity then
+    -- defer to slap.lua via callback (set during init)
+    if evo._harmony_callback then
+      evo._harmony_callback(harm_set)
+    end
+  end
+end
+
+-- set by slap.lua so conductor can trigger harmonic moves
+function evo.set_harmony_callback(fn)
+  evo._harmony_callback = fn
 end
 
 return evo

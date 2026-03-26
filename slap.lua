@@ -24,6 +24,7 @@ local evo = include("lib/evolution")
 local personalities = include("lib/personalities")
 local song_engine = include("lib/song_engine")
 local robot = include("lib/robot")
+local harmony = include("lib/harmony")
 
 -- ======== CONSTANTS ========
 
@@ -78,9 +79,8 @@ local TIMBRES = {
 }
 local current_timbre = 0  -- 0 = none active
 
-local SCALE_NAMES = {"minor pentatonic", "major pentatonic", "dorian", "natural minor",
-                     "major", "phrygian", "mixolydian", "chromatic"}
-local SCALE_SHORT = {"mPn", "MPn", "Dor", "Min", "Maj", "Phr", "Mix", "Chr"}
+local SCALE_NAMES = harmony.SCALE_NAMES  -- 23 scales
+local SCALE_SHORT = harmony.SCALE_NAMES  -- same, they're already short
 
 -- clock divisions per track: {name, sync_value}
 local DIVISIONS = {
@@ -159,7 +159,7 @@ end
 -- ======== SCALE ========
 
 function build_scale()
-  scale_notes = musicutil.generate_scale(root_note - 12, SCALE_NAMES[scale_type], 8)
+  scale_notes = harmony.build_scale(root_note, scale_type)
   tracks._scale_notes = scale_notes
 end
 
@@ -329,7 +329,7 @@ function init_params()
   params:add_number("root_note", "root note", 24, 72, root_note)
   params:set_action("root_note", function(v) root_note = v; build_scale() end)
 
-  params:add_option("scale_type", "scale", SCALE_SHORT, scale_type)
+  params:add_option("scale_type", "scale", harmony.SCALE_NAMES, scale_type)
   params:set_action("scale_type", function(v) scale_type = v; build_scale() end)
 
   params:add_number("swing", "swing", 0, 80, 0)
@@ -502,6 +502,19 @@ function init()
 
   params:set("clock_tempo", 110)
 
+  -- harmony callback: conductor triggers key/scale changes
+  evo.set_harmony_callback(function(move_set)
+    local result, move_name = harmony.random_move(root_note, scale_type, move_set)
+    if result then
+      root_note = result.root
+      scale_type = result.scale_idx
+      params:set("root_note", root_note)
+      params:set("scale_type", scale_type)
+      build_scale()
+      flash(move_name)
+    end
+  end)
+
   g.key = grid_key
 
   -- main loop: screen + modulation at 15fps
@@ -571,6 +584,18 @@ function init()
         if ok then
           local drift = (math.random()-0.5) * (p[3]-p[2]) * p[4] * inten * 2
           params:set(p[1], util.clamp(cur+drift, p[2], p[3]))
+        end
+      end
+      -- momentary mute/unmute: creates breathing space
+      if math.random() < 0.08 * inten then
+        local mt = math.random(1, 4)
+        if not evo.user_owned_check("mute_" .. mt) then
+          track_mute[mt] = true
+          -- schedule unmute after 2-8 beats
+          clock.run(function()
+            clock.sleep(clock.get_beat_sec() * (2 + math.random() * 6))
+            track_mute[mt] = false
+          end)
         end
       end
       assistant_activity[2] = 1
@@ -647,6 +672,19 @@ function trigger_note(track_idx)
   local final_prob = (prob / 100) * (track_prob / 100)
   if math.random() > final_prob then return end
 
+  -- apply p-locks (per-step param overrides)
+  local restore_cutoff = nil
+  if step.p_cutoff then
+    restore_cutoff = t.cutoff
+    engine.set_param(track_idx - 1, "cutoff", step.p_cutoff)
+  end
+  if step.p_morph and track_idx == 3 then
+    engine.set_param(2, "morph", step.p_morph)
+  end
+  if step.p_accent and track_idx == 2 then
+    engine.set_param(1, "accent", step.p_accent)
+  end
+
   local freq = musicutil.note_num_to_freq(step.note)
   local amp = step.vel * t.level
   send_track_params(track_idx)
@@ -661,6 +699,8 @@ function trigger_note(track_idx)
   clock.run(function()
     clock.sleep(clock.get_beat_sec() * t.gate * DIVISIONS[t.division][2])
     engine.note_off(track_idx - 1)
+    -- restore p-locks
+    if restore_cutoff then engine.set_param(track_idx - 1, "cutoff", restore_cutoff) end
     if midi_out_device and midi_out_ch > 0 then
       midi_out_device:note_off(step.note, 0, midi_out_ch)
     end
@@ -889,11 +929,21 @@ function key(n, z)
       k3_held = false
       if os.clock() - k3_press_time < 0.3 and not k3_encoder_used then
         if current_page == 1 then
+          -- generate euclidean pattern with random pulse count
+          local t = tracks[selected_track]
+          local ns = t.num_steps
+          local pulses = math.random(math.floor(ns * 0.2), math.floor(ns * 0.7))
+          local offset = math.random(0, ns - 1)
+          local euc = harmony.euclidean(ns, pulses, offset)
           local sc = tracks._scale_notes or scale_notes
-          if #sc > 0 then
-            evo.generate_pattern(tracks, selected_track, sc, 0.4 + math.random() * 0.4, 0.3, 1.0)
+          for s = 1, ns do
+            t.steps[s].on = euc[s] or false
+            if t.steps[s].on and #sc > 0 then
+              t.steps[s].note = sc[math.random(#sc)]
+              t.steps[s].vel = 0.4 + math.random() * 0.5
+            end
           end
-          flash("RANDOM")
+          flash("E(" .. pulses .. "," .. ns .. ")")
         elseif current_page == 2 then
           -- cycle timbral presets
           current_timbre = (current_timbre % #TIMBRES) + 1
