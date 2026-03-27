@@ -76,6 +76,16 @@ local TIMBRES = {
     t2 = {cutoff=2000, res=0.5, gate=0.1, accent=0.8},
     t3 = {cutoff=7000, res=0.3, gate=0.1, morph=0.8, fmamt=0.5},
     t4 = {cutoff=8000, res=0.2, gate=0.05, engine_sel=0, pwm=0.5, bits=8}},
+  {name = "WILDERNESS", desc = "weird machines",
+    t1 = {cutoff=4000, res=0.35, gate=0.7, spread=0.9, brightness=0.95},
+    t2 = {cutoff=500, res=0.85, gate=0.3, accent=1.0},
+    t3 = {cutoff=6000, res=0.4, gate=0.5, morph=0.0, fmamt=0.7},
+    t4 = {cutoff=9000, res=0.3, gate=0.1, engine_sel=1, pwm=0.15, bits=5}},
+  {name = "ALIEN",   desc = "otherworldly",
+    t1 = {cutoff=8000, res=0.1, gate=0.95, spread=0.95, brightness=0.1},
+    t2 = {cutoff=200, res=0.9, gate=0.6, accent=0.4},
+    t3 = {cutoff=3000, res=0.5, gate=0.8, morph=1.0, fmamt=0.6},
+    t4 = {cutoff=12000, res=0.05, gate=0.03, engine_sel=3, pwm=0.5, bits=4}},
 }
 local current_timbre = 0  -- 0 = none active
 

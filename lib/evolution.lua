@@ -514,7 +514,7 @@ function evo.conductor_tick(tracks, energy, conductor_profile)
   -- mostly drift, but some jump for occasional radical moments
   local universal_knobs = {
     {param="t1_brightness",weight=0.15, range={0.1, 0.9},  mode="drift"},
-    {param="t1_brightness",weight=0.03, range={0.05, 0.95},mode="jump"},  -- rare radical
+    {param="t1_brightness",weight=0.03, range={0.02, 0.98},mode="jump"},  -- rare radical
     {param="t1_res",       weight=0.1,  range={0.05, 0.5}, mode="drift"},
     {param="t1_res",       weight=0.02, range={0.02, 0.7}, mode="jump"},
     {param="t2_res",       weight=0.12, range={0.2, 0.85}, mode="drift"},
@@ -522,19 +522,23 @@ function evo.conductor_tick(tracks, energy, conductor_profile)
     {param="t2_accent",    weight=0.03, range={0, 1},      mode="jump"},  -- sudden accent
     {param="t3_res",       weight=0.1,  range={0.1, 0.6},  mode="drift"},
     {param="t3_fmamt",     weight=0.15, range={0, 0.5},    mode="drift"},
-    {param="t3_fmamt",     weight=0.03, range={0, 0.8},    mode="jump"},  -- FM explosion
-    {param="t3_morph",     weight=0.03, range={0, 1},      mode="jump"},  -- sudden morph
+    {param="t3_fmamt",     weight=0.04, range={0.3, 0.9},  mode="jump"},  -- FM metallic bell
+    {param="t3_morph",     weight=0.04, range={0, 1},      mode="jump"},  -- sudden morph
     {param="t3_lfoRate",   weight=0.08, range={0.5, 10},   mode="drift"},
-    {param="t3_lfoRate",   weight=0.02, range={0.1, 18},   mode="jump"},  -- LFO surge
+    {param="t3_lfoRate",   weight=0.02, range={0.1, 20},   mode="jump"},  -- LFO surge
     {param="t3_lfoDepth",  weight=0.1,  range={0, 0.35},   mode="drift"},
+    {param="t3_lfoDepth",  weight=0.02, range={0.2, 0.6},  mode="jump"},  -- deep wobble
     {param="t4_res",       weight=0.1,  range={0.05, 0.5}, mode="drift"},
     {param="t4_bits",      weight=0.08, range={6, 16},     mode="drift"},
-    {param="t4_bits",      weight=0.02, range={4, 16},     mode="jump"},  -- bitcrush moment
+    {param="t4_bits",      weight=0.03, range={3, 8},      mode="jump"},  -- heavy bitcrush
     {param="t4_pwm",       weight=0.1,  range={0.1, 0.9},  mode="drift"},
-    {param="t1_spread",    weight=0.03, range={0, 0.9},    mode="jump"},  -- spectral shift
-    {param="t1_cutoff",    weight=0.02, range={200, 6000},  mode="jump"},  -- filter surprise
-    {param="t2_cutoff",    weight=0.02, range={100, 5000},  mode="jump"},
-    {param="t3_cutoff",    weight=0.02, range={300, 8000},  mode="jump"},
+    {param="t4_pwm",       weight=0.02, range={0.05, 0.95},mode="jump"},  -- extreme pulse
+    {param="t1_spread",    weight=0.04, range={0.6, 0.98}, mode="jump"},  -- spectral explosion
+    {param="t1_spread",    weight=0.02, range={0, 0.05},   mode="jump"},  -- spectral collapse
+    {param="t1_cutoff",    weight=0.02, range={200, 8000},  mode="jump"},
+    {param="t2_cutoff",    weight=0.02, range={80, 6000},   mode="jump"},
+    {param="t3_cutoff",    weight=0.02, range={300, 10000}, mode="jump"},
+    {param="t4_engine",    weight=0.015, range={1, 4},      mode="jump"},  -- rare engine switch
   }
 
   -- combine conductor knobs + universal
