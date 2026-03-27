@@ -935,10 +935,10 @@ function start_sequencer()
     end)
   end
 
-  -- conductor clock (once per bar)
+  -- conductor clock (twice per beat = every 8th note)
   track_clocks[5] = clock.run(function()
     while playing do
-      clock.sync(1)
+      clock.sync(0.5)
       robot.beat()
       if conductor_intensity_mult < 0.01 then goto skip_conductor end
       do
