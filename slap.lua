@@ -139,9 +139,9 @@ local sah_params = {
   {param="t4_bits",  track=4, range={5, 14}, chance=0.25},      -- bits vary per note
 }
 
--- clock modulation
+-- clock modulation (OFF by default, user enables via ALT+E3 on AUTO)
 local clock_mod_on = false
-local clock_mod_amount = 0.15  -- max tempo deviation (±15%)
+local clock_mod_amount = 0  -- 0 = off. ALT+E3 on AUTO to increase
 
 -- ======== STATE ========
 
@@ -913,12 +913,12 @@ function apply_bezier_modulation()
     end
   end
 
-  -- clock modulation: bezier gently pushes tempo
-  if clock_mod_on then
+  -- clock modulation: bezier offsets tempo around user's base
+  -- does NOT overwrite the base tempo — uses clock.set_tempo instead
+  if clock_mod_on and clock_mod_amount > 0.01 then
     local base_tempo = params:get("clock_tempo")
-    local mod = b4 * clock_mod_amount * 0.3
-    -- tiny nudge per frame, accumulates to ±15% over time
-    params:set("clock_tempo", util.clamp(base_tempo + mod, 40, 300))
+    local offset = b4 * clock_mod_amount * base_tempo
+    clock.set_tempo(util.clamp(base_tempo + offset, 40, 300))
   end
 end
 
