@@ -57,7 +57,7 @@ Engine_Slap : CroneEngine {
       Out.ar(out, sig);
     }).add;
 
-    // MANTA — Spectral Additive Pad
+    // MANTA — Spectral Additive Pad (living, morphing — NOT a bell)
     SynthDef(\manta, {
       arg out=0, freq=220, amp=0.3, gate=1,
           spread=0.3, brightness=0.7,
@@ -66,12 +66,16 @@ Engine_Slap : CroneEngine {
       env = EnvGen.kr(Env.adsr(0.5, 0.4, 0.8, 1.2), gate, doneAction: 2);
       sig = Mix.fill(8, { |i|
         var h = i + 1;
-        var drift = LFNoise1.kr(0.06 + (i * 0.015)).range(
-          1 - (spread * 0.006),
-          1 + (spread * 0.006)
+        // WIDE drift: spread now controls real detuning (was 0.006, now 0.03)
+        // FAST LFOs: each harmonic drifts independently and audibly
+        var drift = LFNoise1.kr(0.2 + (i * 0.08)).range(
+          1 - (spread * 0.03),
+          1 + (spread * 0.03)
         );
-        SinOsc.ar(freq * h * drift) *
-          (brightness.linlin(0, 1, 0.2, 1.8) / h.pow(1.4 - (brightness * 0.35)))
+        // amplitude shimmer: each harmonic gently pulses
+        var ampMod = LFNoise1.kr(0.15 + (i * 0.05)).range(0.7, 1.0);
+        SinOsc.ar(freq * h * drift) * ampMod *
+          (brightness.linlin(0, 1, 0.3, 1.5) / h.pow(1.5 - (brightness * 0.3)))
       });
       sig = MoogFF.ar(sig, cutoff.lag(0.12), res * 3);
       sig = sig * env * amp * 0.25;
