@@ -527,11 +527,20 @@ function init_params()
       end
     end
 
-    -- regenerate patterns when switching conductor
+    -- ======== CONDUCTOR TAKEOVER BURST ========
+    -- switch should be IMMEDIATE and dramatic
     local sc = tracks._scale_notes or scale_notes
-    if #sc > 0 and playing then
+
+    -- 1. set arrangement immediately from conductor's profile
+    if prof.arr then
+      local pool = prof.arr.hi or prof.arr.mid or {{1,1,1,1}}
+      evo._arr_current = pool[math.random(#pool)]
+      evo._arr_counter = 0
+    end
+
+    -- 2. regenerate ALL patterns
+    if #sc > 0 then
       if prof.lock_16 then
-        -- locked conductors: per-conductor euclidean patterns + probability
         local pulses = prof.default_pulses or {3, 5, 4, 4}
         local probs = prof.default_probability or {90, 95, 85, 90}
         for t = 1, NUM_TRACKS do
@@ -540,23 +549,54 @@ function init_params()
           local euc = harmony.euclidean(16, p, math.random(0, 15))
           for s = 1, 16 do
             tracks[t].steps[s].on = euc[s] or false
-            if tracks[t].steps[s].on and #sc > 0 then
-              tracks[t].steps[s].note = sc[math.random(#sc)]
-              tracks[t].steps[s].vel = 0.5 + math.random() * 0.4
+            if tracks[t].steps[s].on then
+              -- use melodic generation, not random
+              evo.generate_pattern(tracks, t, sc, p/16, 0.4, 0.95)
             end
           end
           tracks[t].probability = probs[t] or 90
           pcall(function() params:set("t" .. t .. "_probability", tracks[t].probability) end)
         end
       else
-        -- loose conductors: random sparse patterns
+        local densities = {0.25, 0.35, 0.3, 0.3}
         for t = 1, NUM_TRACKS do
-          local density = 0.2 + math.random() * 0.3
-          evo.generate_pattern(tracks, t, sc, density, 0.3, 0.9)
+          evo.generate_pattern(tracks, t, sc, densities[t], 0.3, 0.9)
         end
       end
       evo.save_home(tracks)
     end
+
+    -- 3. apply arrangement probabilities immediately
+    if prof.arr and evo._arr_current then
+      for t = 1, 4 do
+        if evo._arr_current[t] == 0 then
+          tracks[t].probability = 0
+          pcall(function() params:set("t" .. t .. "_probability", 0) end)
+        end
+      end
+    end
+
+    -- 4. fire a burst of conductor ticks at high intensity for instant takeover
+    if playing then
+      local energy = explorer_on and song_engine.get_energy() or 0.5
+      for burst = 1, 8 do
+        local burst_prof = {
+          style = prof.style,
+          intensity_range = {math.max(prof.intensity_range[1], 0.5),
+                             math.max(prof.intensity_range[2], 0.8)},
+          knobs = prof.knobs,
+          lock_16 = prof.lock_16,
+          home_tendency = 0,  -- no home returns during burst
+          arr = prof.arr,
+          harmony_set = prof.harmony_set,
+          harmony_chance = 0,  -- no key changes during burst
+        }
+        evo.conductor_tick(tracks, energy, burst_prof)
+      end
+    end
+
+    -- 5. kill all playing notes so new timbre is heard immediately
+    for t = 0, 3 do engine.note_off(t) end
 
     -- restart explorer with new personality
     if explorer_on then
