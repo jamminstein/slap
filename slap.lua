@@ -531,10 +531,10 @@ function init_params()
     -- switch should be IMMEDIATE and dramatic
     local sc = tracks._scale_notes or scale_notes
 
-    -- 1. set arrangement immediately from conductor's profile
+    -- 1. set arrangement to conductor's SIGNATURE config (first in their mid pool)
     if prof.arr then
-      local pool = prof.arr.hi or prof.arr.mid or {{1,1,1,1}}
-      evo._arr_current = pool[math.random(#pool)]
+      local pool = prof.arr.mid or prof.arr.lo or {{1,1,1,1}}
+      evo._arr_current = pool[1]  -- first config = most characteristic
       evo._arr_counter = 0
     end
 
@@ -576,20 +576,44 @@ function init_params()
       end
     end
 
-    -- 4. fire a burst of conductor ticks at high intensity for instant takeover
+    -- 4. SLAM conductor knobs to their signature positions immediately
+    -- don't sweep — just set them. This is what makes conductors feel different.
+    if prof.knobs then
+      for _, knob in ipairs(prof.knobs) do
+        if not evo.user_owned_check(knob.param) then
+          local center = (knob.range[1] + knob.range[2]) * 0.5
+          -- bias toward the character: drift knobs go to center, jump knobs go random
+          local target
+          if knob.mode == "jump" then
+            target = knob.range[1] + math.random() * (knob.range[2] - knob.range[1])
+          else
+            target = center
+          end
+          pcall(function() params:set(knob.param, target) end)
+          -- also push to engine directly
+          local track_num = tonumber(knob.param:sub(2, 2))
+          local sc_name = knob.param:sub(4)
+          if track_num then
+            pcall(function() engine.set_param(track_num - 1, sc_name, target) end)
+          end
+        end
+      end
+    end
+
+    -- 5. fire conductor ticks at high intensity for continued shaping
     if playing then
       local energy = explorer_on and song_engine.get_energy() or 0.5
-      for burst = 1, 8 do
+      for burst = 1, 5 do
         local burst_prof = {
           style = prof.style,
-          intensity_range = {math.max(prof.intensity_range[1], 0.5),
-                             math.max(prof.intensity_range[2], 0.8)},
+          intensity_range = {math.max(prof.intensity_range[1], 0.6),
+                             math.max(prof.intensity_range[2], 0.9)},
           knobs = prof.knobs,
           lock_16 = prof.lock_16,
-          home_tendency = 0,  -- no home returns during burst
+          home_tendency = 0,
           arr = prof.arr,
           harmony_set = prof.harmony_set,
-          harmony_chance = 0,  -- no key changes during burst
+          harmony_chance = 0,
         }
         evo.conductor_tick(tracks, energy, burst_prof)
       end
