@@ -334,6 +334,8 @@ local function apply_timbre(idx)
       engine.set_param(3, "pwm", tr.pwm or 0.5)
       engine.set_param(3, "bits", tr.bits or 10)
     end
+    -- kill current note so next trigger uses new params
+    engine.note_off(i - 1)
     ::next_track::
   end
   -- preset-specific reverb
