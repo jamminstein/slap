@@ -97,20 +97,51 @@ local DIVISIONS = {
   {"1/32", 1/8}, {"1/16", 1/4}, {"1/8", 1/2}, {"1/4", 1}, {"1/2", 2},
 }
 
--- bezier modulation routing targets
+-- bezier modulation routing targets (14 routes = modular-level patching)
 local MOD_ROUTES = {
-  {name = "MNT.cut", param = "t1_cutoff", sc_param = "cutoff", track = 1, base_mult = 0.7},
-  {name = "MNT.brt", param = "t1_brightness", sc_param = "brightness", track = 1, base_mult = 0.5},
-  {name = "ZKT.cut", param = "t2_cutoff", sc_param = "cutoff", track = 2, base_mult = 0.7},
-  {name = "ZKT.acc", param = "t2_accent", sc_param = "accent", track = 2, base_mult = 0.6},
-  {name = "TRD.cut", param = "t3_cutoff", sc_param = "cutoff", track = 3, base_mult = 0.7},
-  {name = "TRD.mrp", param = "t3_morph",  sc_param = "morph",  track = 3, base_mult = 0.6},
-  {name = "BZT.cut", param = "t4_cutoff", sc_param = "cutoff", track = 4, base_mult = 0.6},
-  {name = "BZT.pwm", param = "t4_pwm",    sc_param = "pwm",    track = 4, base_mult = 0.5},
+  -- cutoff sweeps (multiplicative)
+  {name = "MNT.cut", param = "t1_cutoff", sc_param = "cutoff", track = 1, base_mult = 0.7, kind = "mult"},
+  {name = "ZKT.cut", param = "t2_cutoff", sc_param = "cutoff", track = 2, base_mult = 0.7, kind = "mult"},
+  {name = "TRD.cut", param = "t3_cutoff", sc_param = "cutoff", track = 3, base_mult = 0.7, kind = "mult"},
+  {name = "BZT.cut", param = "t4_cutoff", sc_param = "cutoff", track = 4, base_mult = 0.6, kind = "mult"},
+  -- timbral (additive 0-1)
+  {name = "MNT.brt", param = "t1_brightness", sc_param = "brightness", track = 1, base_mult = 0.4, kind = "add"},
+  {name = "ZKT.acc", param = "t2_accent", sc_param = "accent", track = 2, base_mult = 0.5, kind = "add"},
+  {name = "ZKT.res", param = "t2_res",    sc_param = "res",    track = 2, base_mult = 0.4, kind = "add"},
+  {name = "TRD.mrp", param = "t3_morph",  sc_param = "morph",  track = 3, base_mult = 0.5, kind = "add"},
+  {name = "TRD.fm",  param = "t3_fmamt",  sc_param = "fmamt",  track = 3, base_mult = 0.3, kind = "add"},
+  {name = "BZT.pwm", param = "t4_pwm",    sc_param = "pwm",    track = 4, base_mult = 0.4, kind = "add"},
+  {name = "BZT.bit", param = "t4_bits",   sc_param = "bits",   track = 4, base_mult = 4.0, kind = "bits"},
+  -- gate length (controls note duration)
+  {name = "MNT.gte", param = "t1_gate", sc_param = nil, track = 1, base_mult = 0.4, kind = "gate"},
+  {name = "ZKT.gte", param = "t2_gate", sc_param = nil, track = 2, base_mult = 0.3, kind = "gate"},
+  {name = "TRD.gte", param = "t3_gate", sc_param = nil, track = 3, base_mult = 0.3, kind = "gate"},
 }
-local mod_amounts = {0.3, 0.2, 0.4, 0.25, 0.35, 0.3, 0.25, 0.2}  -- bezier active from start
-local mod_values = {0, 0, 0, 0, 0, 0, 0, 0}
+local NUM_ROUTES = 14
+local mod_amounts = {0.3, 0.4, 0.35, 0.25, 0.2, 0.25, 0.15, 0.3, 0.15, 0.2, 0.1, 0.15, 0.1, 0.15}
+local mod_values = {}
+for i = 1, NUM_ROUTES do mod_values[i] = 0 end
 local selected_route = 1
+
+-- cross-track modulation: one track's activity affects another's params
+local xtrack = {
+  -- {source_track, target_param, sc_param, target_track, depth, kind}
+  {src=2, dst_param="t1_cutoff", sc="cutoff", dst=1, depth=0.3},   -- bass env → pad filter
+  {src=3, dst_param="t4_bits",   sc="bits",   dst=4, depth=2.0},   -- melody → perc bits
+  {src=1, dst_param="t3_lfoDepth",sc="lfoDepth",dst=3,depth=0.15}, -- pad → melody LFO
+}
+local xtrack_values = {0, 0, 0}  -- current envelope follower values
+
+-- sample & hold: random value per note trigger
+local sah_params = {
+  {param="t2_accent", track=2, range={0.2, 0.9}, chance=0.4},  -- acid accent varies per note
+  {param="t3_fmamt", track=3, range={0, 0.5}, chance=0.3},     -- FM varies per note
+  {param="t4_bits",  track=4, range={5, 14}, chance=0.25},      -- bits vary per note
+}
+
+-- clock modulation
+local clock_mod_on = false
+local clock_mod_amount = 0.15  -- max tempo deviation (±15%)
 
 -- ======== STATE ========
 
@@ -816,35 +847,78 @@ function apply_bezier_modulation()
   local b4 = bez.get_raw("curve4")
   local b5 = bez.get_raw("curve5")
   local lfo_val = bez.get_raw("lfo")
-  -- 8 sources for 8 routes
+  -- 14 sources: each route gets a different bezier curve or blend
   local sources = {
     b4,                        -- MNT.cut: slow sweeps
-    b1,                        -- MNT.spd: gentle spectral drift
     b1,                        -- ZKT.cut: slow filter
-    b2,                        -- ZKT.acc: medium accent
     b2,                        -- TRD.cut: medium filter
-    b3 + lfo_val * 0.3,       -- TRD.mrp: morph (alive)
     b5,                        -- BZT.cut: fast
+    b1 * 0.7 + lfo_val * 0.3, -- MNT.brt: gentle spectral
+    b2,                        -- ZKT.acc: medium accent
+    b3,                        -- ZKT.res: fast resonance
+    b3 + lfo_val * 0.3,       -- TRD.mrp: morph (alive)
+    (b4 + b5) * 0.5,          -- TRD.fm: blended FM
     (b4 + b2) * 0.5,          -- BZT.pwm: blended
+    b5,                        -- BZT.bit: fast bitcrush
+    b4 * 0.5,                 -- MNT.gte: slow gate
+    b3 * 0.6,                 -- ZKT.gte: medium gate
+    (b2 + b5) * 0.4,          -- TRD.gte: blended gate
   }
 
   for i, route in ipairs(MOD_ROUTES) do
-    if mod_amounts[i] > 0.01 then
-      local base = params:get(route.param)
-      local raw = sources[i] * mod_amounts[i]
+    local src = sources[i] or 0
+    if mod_amounts[i] and mod_amounts[i] > 0.01 then
+      local ok, base = pcall(function() return params:get(route.param) end)
+      if not ok then goto skip_route end
+      local raw = src * mod_amounts[i]
       mod_values[i] = raw
       local mod_val = raw * route.base_mult
-      -- cutoff params use multiplicative mod, others use additive
-      local new_val
-      if route.sc_param == "cutoff" then
-        new_val = util.clamp(base * (1 + mod_val), 30, 16000)
-      else
-        new_val = util.clamp(base + mod_val * 0.5, 0, 1)
+
+      if route.kind == "mult" then
+        engine.set_param(route.track - 1, route.sc_param, util.clamp(base * (1 + mod_val), 30, 16000))
+      elseif route.kind == "add" then
+        engine.set_param(route.track - 1, route.sc_param, util.clamp(base + mod_val * 0.5, 0, 1))
+      elseif route.kind == "bits" then
+        engine.set_param(route.track - 1, route.sc_param, util.clamp(math.floor(base + mod_val), 3, 16))
+      elseif route.kind == "gate" then
+        tracks[route.track].gate = util.clamp(base + mod_val * 0.5, 0.05, 1.0)
       end
-      engine.set_param(route.track - 1, route.sc_param, new_val)
+      ::skip_route::
     else
       mod_values[i] = 0
     end
+  end
+
+  -- cross-track modulation: envelope followers
+  for xi, xt in ipairs(xtrack) do
+    local src_t = tracks[xt.src]
+    if src_t then
+      local src_vel = 0
+      local pos = src_t.position or 0
+      if pos > 0 and src_t.steps[pos] and src_t.steps[pos].on then
+        src_vel = src_t.steps[pos].vel
+      end
+      xtrack_values[xi] = xtrack_values[xi] * 0.85 + src_vel * 0.15
+      local mod_val = xtrack_values[xi] * xt.depth
+      local ok, base = pcall(function() return params:get(xt.dst_param) end)
+      if ok then
+        if xt.sc == "bits" then
+          engine.set_param(xt.dst - 1, xt.sc, util.clamp(math.floor(base + mod_val), 3, 16))
+        elseif xt.sc == "cutoff" then
+          engine.set_param(xt.dst - 1, xt.sc, util.clamp(base * (1 + mod_val), 30, 16000))
+        else
+          engine.set_param(xt.dst - 1, xt.sc, util.clamp(base + mod_val, 0, 1))
+        end
+      end
+    end
+  end
+
+  -- clock modulation: bezier gently pushes tempo
+  if clock_mod_on then
+    local base_tempo = params:get("clock_tempo")
+    local mod = b4 * clock_mod_amount * 0.3
+    -- tiny nudge per frame, accumulates to ±15% over time
+    params:set("clock_tempo", util.clamp(base_tempo + mod, 40, 300))
   end
 end
 
@@ -881,6 +955,17 @@ function trigger_note(track_idx)
   end
   if step.p_accent and track_idx == 2 then
     engine.set_param(1, "accent", step.p_accent)
+  end
+
+  -- sample & hold: random param snap per note trigger
+  for _, sh in ipairs(sah_params) do
+    if sh.track == track_idx and math.random() < sh.chance then
+      local val = sh.range[1] + math.random() * (sh.range[2] - sh.range[1])
+      pcall(function() params:set(sh.param, val) end)
+      engine.set_param(track_idx - 1,
+        sh.param:sub(4),  -- strip "tN_" prefix
+        val)
+    end
   end
 
   local freq = musicutil.note_num_to_freq(step.note)
@@ -1140,7 +1225,12 @@ function enc(n, d)
   elseif current_page == 6 then -- AUTO
     if k3_held then
       if n == 2 then user_delta("xmod_speed", d * 0.02)
-      elseif n == 3 then user_delta("reverb_damp", d * 0.02) end
+      elseif n == 3 then
+        -- ALT+E3: clock mod amount (0 = off)
+        clock_mod_amount = util.clamp(clock_mod_amount + d * 0.02, 0, 0.5)
+        clock_mod_on = clock_mod_amount > 0.01
+        flash(clock_mod_on and string.format("CLK±%.0f%%", clock_mod_amount * 100) or "CLK MOD OFF")
+      end
     else
       if n == 2 then
         robot_profile = util.clamp(robot_profile + d, 1, #robot.profiles)

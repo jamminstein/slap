@@ -61,20 +61,18 @@ Engine_Slap : CroneEngine {
     SynthDef(\manta, {
       arg out=0, freq=220, amp=0.3, gate=1,
           spread=0.3, brightness=0.7,
-          cutoff=2000, res=0.3, pan=0;
-      var sig, env;
+          cutoff=2000, res=0.3, pan=0, portamento=0.15;
+      var sig, env, pFreq;
+      pFreq = freq.lag(portamento);  // glide between notes
       env = EnvGen.kr(Env.adsr(0.5, 0.4, 0.8, 1.2), gate, doneAction: 2);
       sig = Mix.fill(8, { |i|
         var h = i + 1;
-        // WIDE drift: spread now controls real detuning (was 0.006, now 0.03)
-        // FAST LFOs: each harmonic drifts independently and audibly
         var drift = LFNoise1.kr(0.2 + (i * 0.08)).range(
           1 - (spread * 0.03),
           1 + (spread * 0.03)
         );
-        // amplitude shimmer: each harmonic gently pulses
         var ampMod = LFNoise1.kr(0.15 + (i * 0.05)).range(0.7, 1.0);
-        SinOsc.ar(freq * h * drift) * ampMod *
+        SinOsc.ar(pFreq * h * drift) * ampMod *
           (brightness.linlin(0, 1, 0.3, 1.5) / h.pow(1.5 - (brightness * 0.3)))
       });
       sig = MoogFF.ar(sig, cutoff.lag(0.12), res * 3);
@@ -85,13 +83,14 @@ Engine_Slap : CroneEngine {
     // ZKIT — Acid Bass
     SynthDef(\zkit, {
       arg out=0, freq=110, amp=0.4, gate=1,
-          cutoff=800, res=0.6, accent=0.5, pan=0;
-      var sig, env, fenv;
+          cutoff=800, res=0.6, accent=0.5, pan=0, portamento=0.05;
+      var sig, env, fenv, pFreq;
+      pFreq = freq.lag(portamento);  // acid slide
       env = EnvGen.kr(Env.adsr(0.004, 0.12, 0.35, 0.18), gate, doneAction: 2);
       fenv = EnvGen.kr(Env.perc(0.004, 0.1)) * accent * 5000;
       sig = Mix.fill(8, { |i|
         var h = i + 1;
-        SinOsc.ar(freq * h) * ((-1).pow(i + 1) / h)
+        SinOsc.ar(pFreq * h) * ((-1).pow(i + 1) / h)
       }) * 0.65;
       sig = MoogFF.ar(sig, (cutoff + fenv).clip(30, 16000), res * 3.5);
       sig = (sig * 2.5).tanh;
@@ -103,12 +102,13 @@ Engine_Slap : CroneEngine {
     SynthDef(\toroid, {
       arg out=0, freq=330, amp=0.35, gate=1,
           morph=0.5, fmamt=0.3, cutoff=3000, res=0.4,
-          lfoRate=2, lfoDepth=0.2, pan=0;
-      var sig, sig_fm, env, lfo;
+          lfoRate=2, lfoDepth=0.2, pan=0, portamento=0.08;
+      var sig, sig_fm, env, lfo, pFreq;
+      pFreq = freq.lag(portamento);  // melodic glide
       env = EnvGen.kr(Env.adsr(0.04, 0.25, 0.65, 0.4), gate, doneAction: 2);
       lfo = SinOsc.kr(lfoRate) * lfoDepth;
-      sig = VarSaw.ar(freq, 0, morph.clip(0.01, 0.99));
-      sig_fm = SinOsc.ar(freq + (SinOsc.ar(freq * 2) * freq * fmamt));
+      sig = VarSaw.ar(pFreq, 0, morph.clip(0.01, 0.99));
+      sig_fm = SinOsc.ar(pFreq + (SinOsc.ar(pFreq * 2) * pFreq * fmamt));
       sig = XFade2.ar(sig, sig_fm, morph.linlin(0, 1, -1, 1));
       sig = RLPF.ar(sig,
         (cutoff * (1 + (lfo * 0.35))).clip(30, 16000),
@@ -122,14 +122,15 @@ Engine_Slap : CroneEngine {
     SynthDef(\bzzt, {
       arg out=0, freq=440, amp=0.3, gate=1,
           engine_sel=0, pwm=0.5, fmRatio=2, fmIndex=1,
-          bits=10, cutoff=5000, res=0.2, pan=0;
-      var sig, env;
+          bits=10, cutoff=5000, res=0.2, pan=0, portamento=0.02;
+      var sig, env, pFreq;
+      pFreq = freq.lag(portamento);  // subtle pitch slide
       env = EnvGen.kr(Env.perc(0.003, 0.35), gate, doneAction: 2);
       sig = Select.ar(engine_sel.round.clip(0, 3), [
-        Pulse.ar(freq, pwm.clip(0.05, 0.95)),
-        SinOsc.ar(freq + (SinOsc.ar(freq * fmRatio) * freq * fmIndex)),
-        (VarSaw.ar(freq, 0, 0.3) + (Pulse.ar(freq * 0.5, 0.25) * 0.4)) * 0.65,
-        BPF.ar(PinkNoise.ar, freq.max(60), 0.25) * 5
+        Pulse.ar(pFreq, pwm.clip(0.05, 0.95)),
+        SinOsc.ar(pFreq + (SinOsc.ar(pFreq * fmRatio) * pFreq * fmIndex)),
+        (VarSaw.ar(pFreq, 0, 0.3) + (Pulse.ar(pFreq * 0.5, 0.25) * 0.4)) * 0.65,
+        BPF.ar(PinkNoise.ar, pFreq.max(60), 0.25) * 5
       ]);
       sig = sig.round(2.pow(bits.neg));
       sig = MoogFF.ar(sig, cutoff.clip(30, 16000), res * 2);
