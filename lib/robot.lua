@@ -207,13 +207,12 @@ robot.profiles = {
     personality = 2,
     head = "square", eyes = "line", mouth = "flat", feat = "antenna",
     intensity_range = {0.15, 0.35}, harmony_set = "minimal", harmony_chance = 0.01, home_tendency = 0.10,
-    default_timbre = 3, default_divisions = {2,2,2,2},
+    default_timbre = 3, default_divisions = {3,2,2,2},  -- pad at 1/8, rest at 1/16
     default_mods = {0.1, 0.25, 0.15, 0.05, 0.15, 0.05},
     style = {
-      -- mostly ghost notes + velocity. very little pattern change.
-      replace_one = 0.08, velocity_drift = 0.25, rotate = 0.0,
-      thicken = 0.03, thin = 0.02, shift = 0.02,
-      extend = 0.0, truncate = 0.0, accent = 0.15, ghost = 0.35,
+      replace_one = 0.05, velocity_drift = 0.25, rotate = 0.0,
+      thicken = 0.03, thin = 0.02, shift = 0.0,
+      extend = 0.0, truncate = 0.0, accent = 0.15, ghost = 0.40,
       crescendo = 0.05, decrescendo = 0.05,
     },
     knobs = {

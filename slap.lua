@@ -650,8 +650,8 @@ function init()
   clock.run(function()
     while true do
       clock.sleep(2.5 + math.random() * 4)
-      if not playing or assistant_intensity[1] < 0.01 then goto lsd_skip end
-      local inten = assistant_intensity[1]
+      if not playing or assistant_intensity[1] < 0.01 or conductor_intensity_mult < 0.01 then goto lsd_skip end
+      local inten = assistant_intensity[1] * conductor_intensity_mult
       local picks = {
         {"bez_speed",0.01,3,0.04},{"bez_tension",0.1,1.5,0.05},
         {"xmod_speed",0,0.8,0.04},{"lfo_freq",0.01,8,0.03},
@@ -673,8 +673,8 @@ function init()
   clock.run(function()
     while true do
       clock.sleep(3 + math.random() * 5)
-      if not playing or assistant_intensity[2] < 0.01 then goto water_skip end
-      local inten = assistant_intensity[2]
+      if not playing or assistant_intensity[2] < 0.01 or conductor_intensity_mult < 0.01 then goto water_skip end
+      local inten = assistant_intensity[2] * conductor_intensity_mult
       local picks = {
         {"reverb_room",0.2,0.95,0.03},{"reverb_damp",0.1,0.9,0.03},
         {"t1_res",0.05,0.6,0.02},{"t2_res",0.1,0.9,0.03},
@@ -750,8 +750,8 @@ function init()
   clock.run(function()
     while true do
       clock.sleep(4 + math.random() * 6)
-      if not playing or assistant_intensity[3] < 0.01 then goto turmeric_skip end
-      local inten = assistant_intensity[3]
+      if not playing or assistant_intensity[3] < 0.01 or conductor_intensity_mult < 0.01 then goto turmeric_skip end
+      local inten = assistant_intensity[3] * conductor_intensity_mult
       local picks = {
         {"t1_spread",0.15,0.6,0.02},{"t1_brightness",0.2,0.7,0.02},
         {"t1_gate",0.4,0.9,0.02},   -- MANTA gate: gentle range
@@ -909,14 +909,18 @@ function start_sequencer()
     while playing do
       clock.sync(1)
       robot.beat()
-      local energy = explorer_on and song_engine.get_energy() or 0.3
-      local profile = robot.profiles[robot_profile]
-      -- scale conductor by user intensity multiplier
-      local saved_ir = profile.intensity_range
-      profile.intensity_range = {saved_ir[1] * conductor_intensity_mult,
-                                  saved_ir[2] * conductor_intensity_mult}
-      evo.conductor_tick(tracks, energy, profile)
-      profile.intensity_range = saved_ir
+      if conductor_intensity_mult < 0.01 then goto skip_conductor end
+      do
+        local energy = explorer_on and song_engine.get_energy() or 0.3
+        local profile = robot.profiles[robot_profile]
+        -- scale conductor by user intensity multiplier
+        local saved_ir = profile.intensity_range
+        profile.intensity_range = {saved_ir[1] * conductor_intensity_mult,
+                                    saved_ir[2] * conductor_intensity_mult}
+        evo.conductor_tick(tracks, energy, profile)
+        profile.intensity_range = saved_ir
+      end
+      ::skip_conductor::
     end
   end)
 end
@@ -1566,9 +1570,16 @@ local function draw_auto_page()
 
   screen.level(6); screen.move(48, 32); screen.text(p.desc)
 
-  -- conductor intensity
-  screen.level(8); screen.move(48, 42)
-  screen.text("INT:" .. string.format("%.0f%%", conductor_intensity_mult * 100))
+  -- conductor intensity with label
+  local int_pct = conductor_intensity_mult * 100
+  local int_label = "OFF"
+  if int_pct > 150 then int_label = "CHAOS"
+  elseif int_pct > 90 then int_label = "FULL"
+  elseif int_pct > 50 then int_label = "MODERATE"
+  elseif int_pct > 10 then int_label = "GENTLE"
+  elseif int_pct > 0 then int_label = "MINIMAL" end
+  screen.level(conductor_intensity_mult < 0.01 and 4 or 10); screen.move(48, 42)
+  screen.text(string.format("%.0f%%", int_pct) .. " " .. int_label)
 
   if explorer_on then
     local section = song_engine.get_section_name()
