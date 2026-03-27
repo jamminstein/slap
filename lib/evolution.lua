@@ -504,7 +504,7 @@ function evo.conductor_tick(tracks, energy, conductor_profile)
 
   -- every N ticks, consider changing arrangement
   if not evo._arr_counter then evo._arr_counter = 0 end
-  if not evo._arr_current then evo._arr_current = {1, 1, 0, 0} end -- start with duo
+  if not evo._arr_current then evo._arr_current = {1, 1, 1, 0} end -- start with trio
   evo._arr_counter = evo._arr_counter + 1
 
   local arr_rate = arr_profile.rate or 16
@@ -557,7 +557,7 @@ function evo.conductor_tick(tracks, energy, conductor_profile)
     total_active = total_active + count
   end
 
-  local max_total = lock_16 and 28 or 18  -- tighter limits
+  local max_total = lock_16 and 32 or 24  -- reasonable limits
   if total_active > max_total then
     local densest = 1
     for ti = 2, 4 do
