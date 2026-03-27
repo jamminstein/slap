@@ -301,22 +301,40 @@ local function apply_timbre(idx)
   local mappings = {t.t1, t.t2, t.t3, t.t4}
   for i = 1, 4 do
     local m = mappings[i]
+    if not m then goto next_track end
     local pre = "t" .. i .. "_"
     local tr = tracks[i]
+    -- apply every field: direct to track table + engine + param
     for k, v in pairs(m) do
       if k == "engine_sel" then
         tr.engine_sel = v
-        pcall(function() params:set(pre .. "engine", v + 1) end)
         engine.set_param(i - 1, "engine_sel", v)
-        evo.user_touched(pre .. "engine")
+        pcall(function() params:set(pre .. "engine", v + 1) end)
       else
-        pcall(function() params:set(pre .. k, v) end)
         tr[k] = v
-        -- protect from conductor/assistant override for 8 seconds
-        evo.user_touched(pre .. k)
+        pcall(function() params:set(pre .. k, v) end)
       end
+      evo.user_touched(pre .. k)
     end
-    send_track_params(i)
+    -- force ALL params to engine (not just what timbre sets)
+    engine.set_param(i - 1, "cutoff", tr.cutoff or 2000)
+    engine.set_param(i - 1, "res", tr.res or 0.3)
+    if i == 1 then
+      engine.set_param(0, "spread", tr.spread or 0.3)
+      engine.set_param(0, "brightness", tr.brightness or 0.7)
+    elseif i == 2 then
+      engine.set_param(1, "accent", tr.accent or 0.5)
+    elseif i == 3 then
+      engine.set_param(2, "morph", tr.morph or 0.5)
+      engine.set_param(2, "fmamt", tr.fmamt or 0.3)
+      engine.set_param(2, "lfoRate", tr.lfoRate or 2)
+      engine.set_param(2, "lfoDepth", tr.lfoDepth or 0.2)
+    elseif i == 4 then
+      engine.set_param(3, "engine_sel", tr.engine_sel or 0)
+      engine.set_param(3, "pwm", tr.pwm or 0.5)
+      engine.set_param(3, "bits", tr.bits or 10)
+    end
+    ::next_track::
   end
   -- preset-specific reverb
   if t.name == "SPACE" then
