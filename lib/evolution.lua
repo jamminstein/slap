@@ -492,42 +492,34 @@ function evo.conductor_tick(tracks, energy, conductor_profile)
   end
 
   -- ======== ARRANGEMENT INTELLIGENCE ========
-  -- real arrangement: cycle through configurations with actual silence
-  -- configurations: which tracks should be active (probability > 0)
-  local ARRANGEMENTS = {
-    {1, 0, 0, 0},  -- solo MANTA
-    {0, 1, 0, 0},  -- solo ZKIT
-    {1, 1, 0, 0},  -- duo: pad + bass
-    {0, 1, 0, 1},  -- duo: bass + perc
-    {1, 1, 1, 0},  -- trio: no perc
-    {0, 1, 1, 1},  -- trio: no pad
-    {1, 1, 0, 1},  -- trio: no melody
-    {1, 1, 1, 1},  -- full
-    {1, 1, 1, 1},  -- full (weighted to appear more)
-    {1, 0, 1, 0},  -- duo: pad + melody
+  -- per-conductor arrangement profiles
+  -- each conductor has arr = {lo={configs}, mid={configs}, hi={configs}, rate=ticks}
+  local FALLBACK_ARR = {
+    lo = {{1,0,0,0}, {0,1,0,0}, {1,1,0,0}},
+    mid = {{1,1,0,0}, {0,1,0,1}, {1,1,1,0}},
+    hi = {{1,1,1,0}, {1,1,1,1}, {0,1,1,1}},
+    rate = 16,
   }
+  local arr_profile = (conductor_profile and conductor_profile.arr) or FALLBACK_ARR
 
-  -- every ~16 ticks, consider changing arrangement
+  -- every N ticks, consider changing arrangement
   if not evo._arr_counter then evo._arr_counter = 0 end
   if not evo._arr_current then evo._arr_current = {1, 1, 0, 0} end -- start with duo
   evo._arr_counter = evo._arr_counter + 1
 
-  local arr_change_rate = lock_16 and 24 or 16
-  if evo._arr_counter >= arr_change_rate and math.random() < 0.3 * intensity then
+  local arr_rate = arr_profile.rate or 16
+  if evo._arr_counter >= arr_rate and math.random() < 0.3 * intensity then
     evo._arr_counter = 0
-    -- pick new arrangement, biased by energy
-    local idx
+    -- pick from conductor's energy-appropriate configs
+    local pool
     if energy < 0.3 then
-      -- low energy: solo or duo
-      idx = ({1, 2, 3, 4, 10})[math.random(5)]
+      pool = arr_profile.lo or FALLBACK_ARR.lo
     elseif energy < 0.6 then
-      -- mid: duo or trio
-      idx = ({3, 4, 5, 6, 7, 10})[math.random(6)]
+      pool = arr_profile.mid or FALLBACK_ARR.mid
     else
-      -- high: trio or full
-      idx = ({5, 6, 7, 8, 9})[math.random(5)]
+      pool = arr_profile.hi or FALLBACK_ARR.hi
     end
-    evo._arr_current = ARRANGEMENTS[idx]
+    evo._arr_current = pool[math.random(#pool)]
   end
 
   -- apply arrangement: set probability to 0 for silent tracks

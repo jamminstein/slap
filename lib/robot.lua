@@ -5,11 +5,31 @@
 
 local robot = {}
 
+-- ======== ARRANGEMENT CONFIGURATIONS ========
+-- shared vocabulary for conductor arrangement profiles
+local ARR = {
+  SOLO_MNT  = {1, 0, 0, 0},  -- solo pad
+  SOLO_ZKT  = {0, 1, 0, 0},  -- solo bass
+  SOLO_TRD  = {0, 0, 1, 0},  -- solo melody
+  SOLO_BZT  = {0, 0, 0, 1},  -- solo perc
+  DUO_PB    = {1, 1, 0, 0},  -- pad + bass
+  DUO_BP    = {0, 1, 0, 1},  -- bass + perc
+  DUO_PM    = {1, 0, 1, 0},  -- pad + melody
+  DUO_BM    = {0, 1, 1, 0},  -- bass + melody
+  DUO_MP    = {0, 0, 1, 1},  -- melody + perc
+  TRIO_NOP  = {1, 1, 1, 0},  -- no perc
+  TRIO_NOD  = {1, 1, 0, 1},  -- no melody
+  TRIO_NOM  = {0, 1, 1, 1},  -- no pad
+  TRIO_NOB  = {1, 0, 1, 1},  -- no bass
+  FULL      = {1, 1, 1, 1},  -- all voices
+}
+
 -- ======== CONDUCTOR PROFILES ========
 -- each conductor has:
 --   personality: which song form drives the autonomous mode
 --   conducting_style: weighted actions for the maestro system
 --   intensity_range: how active they are {min, max}
+--   arr: arrangement profile {lo={configs}, mid={configs}, hi={configs}, rate=ticks}
 --   visual: head/eyes/mouth/feat for the avatar
 
 robot.profiles = {
@@ -22,6 +42,8 @@ robot.profiles = {
     intensity_range = {0.6, 0.95}, harmony_set = "chaos", harmony_chance = 0.06, home_tendency = 0.01,
     default_timbre = 0, default_divisions = {1,2,2,1},
     default_mods = {0.1, 0.1, 0.15, 0.1, 0.1, 0.15, 0.1, 0.1},
+    -- wild: any combo, changes fast
+    arr = {lo={ARR.SOLO_ZKT, ARR.SOLO_TRD, ARR.DUO_BM}, mid={ARR.DUO_PB, ARR.DUO_MP, ARR.TRIO_NOP, ARR.SOLO_MNT}, hi={ARR.TRIO_NOM, ARR.FULL, ARR.DUO_BP}, rate=10},
     style = {
       replace_one = 0.15, velocity_drift = 0.10, rotate = 0.15,
       thicken = 0.08, thin = 0.08, shift = 0.15,
@@ -55,6 +77,8 @@ robot.profiles = {
     intensity_range = {0.45, 0.8}, harmony_set = "jazz", harmony_chance = 0.05, home_tendency = 0.02,
     default_timbre = 3, default_divisions = {3,2,2,2},
     default_mods = {0.08, 0.08, 0.1, 0.08, 0.1, 0.15, 0.08, 0.05},
+    -- jazzy: builds from duo to trio, rarely full, loves melody+bass
+    arr = {lo={ARR.DUO_BM, ARR.SOLO_TRD, ARR.DUO_PM}, mid={ARR.DUO_PB, ARR.TRIO_NOP, ARR.DUO_BM}, hi={ARR.TRIO_NOP, ARR.TRIO_NOD, ARR.FULL}, rate=20},
     style = {
       replace_one = 0.30, velocity_drift = 0.20, rotate = 0.05,
       thicken = 0.12, thin = 0.05, shift = 0.12,
@@ -82,6 +106,8 @@ robot.profiles = {
     head = "diamond", eyes = "line", mouth = "flat", feat = "orbit",
     intensity_range = {0.4, 0.85}, harmony_set = "world", harmony_chance = 0.04, home_tendency = 0.015,
     default_timbre = 2, default_divisions = {3,2,2,1},
+    -- sparse and angular: loves solos and duos, sudden full moments
+    arr = {lo={ARR.SOLO_MNT, ARR.SOLO_TRD, ARR.DUO_PM}, mid={ARR.DUO_PM, ARR.SOLO_ZKT, ARR.DUO_PB}, hi={ARR.TRIO_NOP, ARR.FULL, ARR.DUO_BM}, rate=12},
     default_mods = {0.1, 0.08, 0.12, 0.08, 0.12, 0.1, 0.08, 0.08},
     style = {
       replace_one = 0.10, velocity_drift = 0.08, rotate = 0.20,
@@ -113,6 +139,8 @@ robot.profiles = {
     intensity_range = {0.65, 0.95}, harmony_set = "minimal", harmony_chance = 0.02, home_tendency = 0.03,
     default_timbre = 4, default_divisions = {2,2,2,1},
     default_mods = {0.05, 0.03, 0.15, 0.12, 0.08, 0.05, 0.12, 0.05},
+    -- punk: bass-heavy, rarely sparse, explodes to full fast
+    arr = {lo={ARR.DUO_BP, ARR.SOLO_ZKT, ARR.DUO_BM}, mid={ARR.TRIO_NOM, ARR.TRIO_NOD, ARR.DUO_BP}, hi={ARR.FULL, ARR.FULL, ARR.TRIO_NOM}, rate=12},
     style = {
       replace_one = 0.10, velocity_drift = 0.05, rotate = 0.08,
       thicken = 0.25, thin = 0.03, shift = 0.08,
@@ -138,6 +166,8 @@ robot.profiles = {
     head = "pill", eyes = "round", mouth = "smile", feat = "halo",
     intensity_range = {0.35, 0.7}, harmony_set = "classical", harmony_chance = 0.03, home_tendency = 0.04,
     default_timbre = 3, default_divisions = {3,2,2,2},
+    -- groove: bass always present, builds slowly to full, never truly sparse
+    arr = {lo={ARR.DUO_PB, ARR.DUO_BP, ARR.SOLO_ZKT}, mid={ARR.DUO_PB, ARR.TRIO_NOD, ARR.TRIO_NOP}, hi={ARR.FULL, ARR.FULL, ARR.TRIO_NOD}, rate=24},
     default_mods = {0.08, 0.05, 0.1, 0.08, 0.08, 0.05, 0.05, 0.05},
     style = {
       replace_one = 0.08, velocity_drift = 0.30, rotate = 0.05,
@@ -165,6 +195,8 @@ robot.profiles = {
     head = "circle", eyes = "cross", mouth = "smile", feat = "sparks",
     intensity_range = {0.7, 0.99}, harmony_set = "chaos", harmony_chance = 0.08, home_tendency = 0.005,
     default_timbre = 0, default_divisions = {3,2,2,1},
+    -- madman: anything goes, changes fast, solo to full in seconds
+    arr = {lo={ARR.SOLO_MNT, ARR.SOLO_ZKT, ARR.SOLO_TRD, ARR.SOLO_BZT}, mid={ARR.DUO_BM, ARR.DUO_MP, ARR.TRIO_NOB, ARR.FULL}, hi={ARR.FULL, ARR.FULL, ARR.TRIO_NOM}, rate=8},
     default_mods = {0.15, 0.15, 0.18, 0.15, 0.15, 0.2, 0.12, 0.12},
     style = {
       replace_one = 0.15, velocity_drift = 0.08, rotate = 0.12,
@@ -209,6 +241,8 @@ robot.profiles = {
     intensity_range = {0.15, 0.35}, harmony_set = "minimal", harmony_chance = 0.01, home_tendency = 0.10,
     default_timbre = 3, default_divisions = {3,2,2,2},  -- pad at 1/8, rest at 1/16
     default_mods = {0.1, 0.25, 0.15, 0.05, 0.15, 0.05},
+    -- machine: almost always full, sometimes drops pad or melody for a bar
+    arr = {lo={ARR.TRIO_NOD, ARR.DUO_BP, ARR.FULL}, mid={ARR.FULL, ARR.FULL, ARR.TRIO_NOP}, hi={ARR.FULL, ARR.FULL, ARR.FULL}, rate=32},
     style = {
       replace_one = 0.05, velocity_drift = 0.25, rotate = 0.0,
       thicken = 0.03, thin = 0.02, shift = 0.0,
@@ -239,12 +273,14 @@ robot.profiles = {
   {
     name = "KRAFTWERK", desc = "minimal machine",
     personality = 2, lock_16 = true, requantize = true,
-    default_pulses = {2, 4, 3, 6},  -- minimal: sparse pad, simple bass, hint melody, steady perc
+    default_pulses = {2, 4, 3, 6},
     default_probability = {80, 95, 60, 90},
     head = "square", eyes = "dot", mouth = "flat", feat = "antenna",
     intensity_range = {0.05, 0.2}, harmony_set = "minimal", harmony_chance = 0.005, home_tendency = 0.12,
     default_timbre = 3, default_divisions = {3,2,2,2},
     default_mods = {0.03, 0.02, 0.04, 0.02, 0.03, 0.02, 0.03, 0.02},
+    -- minimal: strips down, adds one thing at a time, slow changes
+    arr = {lo={ARR.SOLO_BZT, ARR.DUO_BP, ARR.SOLO_ZKT}, mid={ARR.DUO_BP, ARR.TRIO_NOD, ARR.DUO_PB}, hi={ARR.TRIO_NOP, ARR.FULL, ARR.TRIO_NOD}, rate=32},
     style = {
       replace_one = 0.15, velocity_drift = 0.10, rotate = 0.0,
       thicken = 0.02, thin = 0.05, shift = 0.03,
@@ -262,12 +298,14 @@ robot.profiles = {
   {
     name = "MR FINGERS", desc = "deep house warmth",
     personality = 2, lock_16 = true, requantize = true,
-    default_pulses = {5, 7, 5, 6},  -- deep house: lush pad, walking bass, melody, groove
+    default_pulses = {5, 7, 5, 6},
     default_probability = {90, 95, 80, 85},
     head = "circle", eyes = "round", mouth = "smile", feat = "halo",
     intensity_range = {0.25, 0.55}, harmony_set = "classical", harmony_chance = 0.03, home_tendency = 0.05,
     default_timbre = 3, default_divisions = {3,2,2,2},
     default_mods = {0.08, 0.06, 0.1, 0.08, 0.08, 0.08, 0.05, 0.04},
+    -- deep house: builds from bass+pad to full, warm and patient
+    arr = {lo={ARR.DUO_PB, ARR.SOLO_ZKT, ARR.DUO_PB}, mid={ARR.TRIO_NOP, ARR.DUO_PB, ARR.TRIO_NOD}, hi={ARR.FULL, ARR.FULL, ARR.TRIO_NOP}, rate=28},
     style = {
       replace_one = 0.15, velocity_drift = 0.20, rotate = 0.03,
       thicken = 0.10, thin = 0.03, shift = 0.08,
@@ -291,12 +329,14 @@ robot.profiles = {
   {
     name = "BURIAL", desc = "dark ghost step",
     personality = 4, lock_16 = true, requantize = true,
-    default_pulses = {3, 5, 4, 3},  -- dark: sparse pad, stuttering bass, ghostly, thin perc
+    default_pulses = {3, 5, 4, 3},
     default_probability = {70, 80, 65, 60},
     head = "diamond", eyes = "dot", mouth = "none", feat = "drip",
     intensity_range = {0.3, 0.65}, harmony_set = "world", harmony_chance = 0.03, home_tendency = 0.03,
     default_timbre = 4, default_divisions = {3,2,2,2},
     default_mods = {0.08, 0.06, 0.08, 0.06, 0.08, 0.06, 0.08, 0.05},
+    -- ghostly: voices appear and disappear, mostly sparse
+    arr = {lo={ARR.SOLO_MNT, ARR.DUO_PM, ARR.SOLO_ZKT}, mid={ARR.DUO_PB, ARR.DUO_BM, ARR.TRIO_NOP}, hi={ARR.TRIO_NOP, ARR.TRIO_NOD, ARR.FULL}, rate=16},
     style = {
       replace_one = 0.10, velocity_drift = 0.15, rotate = 0.05,
       thicken = 0.05, thin = 0.12, shift = 0.05,
@@ -318,12 +358,14 @@ robot.profiles = {
   {
     name = "APHEX", desc = "precise IDM",
     personality = 3, lock_16 = true, requantize = true,
-    default_pulses = {4, 7, 6, 5},  -- IDM: moderate pad, complex bass, angular melody, precise perc
+    default_pulses = {4, 7, 6, 5},
     default_probability = {85, 90, 80, 85},
     head = "circle", eyes = "round", mouth = "smile", feat = "sparks",
     intensity_range = {0.35, 0.7}, harmony_set = "jazz", harmony_chance = 0.05, home_tendency = 0.025,
     default_timbre = 2, default_divisions = {2,2,2,1},
     default_mods = {0.1, 0.1, 0.12, 0.1, 0.12, 0.18, 0.1, 0.08},
+    -- IDM: unpredictable combos, sudden drops and bursts
+    arr = {lo={ARR.SOLO_BZT, ARR.DUO_MP, ARR.SOLO_TRD}, mid={ARR.DUO_BP, ARR.TRIO_NOB, ARR.DUO_BM}, hi={ARR.FULL, ARR.TRIO_NOM, ARR.FULL}, rate=14},
     style = {
       replace_one = 0.30, velocity_drift = 0.10, rotate = 0.08,
       thicken = 0.07, thin = 0.07, shift = 0.15,
@@ -348,12 +390,14 @@ robot.profiles = {
   {
     name = "JEFF MILLS", desc = "minimal relentless",
     personality = 4, lock_16 = true, requantize = true,
-    default_pulses = {2, 5, 3, 7},  -- minimal: barely there pad, stripped bass, hint, relentless hat
+    default_pulses = {2, 5, 3, 7},
     default_probability = {70, 90, 55, 95},
     head = "square", eyes = "line", mouth = "flat", feat = "orbit",
     intensity_range = {0.2, 0.5}, harmony_set = "minimal", harmony_chance = 0.01, home_tendency = 0.07,
     default_timbre = 8, default_divisions = {3,2,2,2},
     default_mods = {0.04, 0.03, 0.05, 0.04, 0.04, 0.03, 0.04, 0.03},
+    -- relentless: perc always present, strips everything else down, adds one at a time
+    arr = {lo={ARR.SOLO_BZT, ARR.DUO_BP, ARR.SOLO_BZT}, mid={ARR.DUO_BP, ARR.DUO_BP, ARR.TRIO_NOM}, hi={ARR.TRIO_NOM, ARR.TRIO_NOD, ARR.FULL}, rate=20},
     style = {
       replace_one = 0.08, velocity_drift = 0.12, rotate = 0.05,
       thicken = 0.08, thin = 0.20, shift = 0.02,
