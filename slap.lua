@@ -304,19 +304,18 @@ local function apply_timbre(idx)
     local pre = "t" .. i .. "_"
     local tr = tracks[i]
     for k, v in pairs(m) do
-      -- engine_sel is special: param is named "engine" and is an option (1-indexed)
       if k == "engine_sel" then
         tr.engine_sel = v
         pcall(function() params:set(pre .. "engine", v + 1) end)
         engine.set_param(i - 1, "engine_sel", v)
+        evo.user_touched(pre .. "engine")
       else
-        -- set via param (triggers action which updates track + engine)
         pcall(function() params:set(pre .. k, v) end)
-        -- also set directly on track table as backup
         tr[k] = v
+        -- protect from conductor/assistant override for 8 seconds
+        evo.user_touched(pre .. k)
       end
     end
-    -- force full engine sync
     send_track_params(i)
   end
   -- preset-specific reverb
