@@ -618,8 +618,8 @@ function evo.conductor_tick(tracks, energy, conductor_profile)
   -- mostly drift, but some jump for occasional radical moments
   local universal_knobs = {
     -- weights bumped: things should MOVE constantly
-    {param="t1_brightness",weight=0.25, range={0.1, 0.9},  mode="drift"},
-    {param="t1_brightness",weight=0.05, range={0.02, 0.98},mode="jump"},
+    {param="t1_brightness",weight=0.25, range={0.15, 0.6}, mode="drift"},  -- capped: >0.6 = bells
+    {param="t1_brightness",weight=0.04, range={0.1, 0.75}, mode="jump"},   -- occasional bright
     {param="t1_res",       weight=0.2,  range={0.05, 0.5}, mode="drift"},
     {param="t1_res",       weight=0.03, range={0.02, 0.7}, mode="jump"},
     {param="t2_res",       weight=0.2,  range={0.2, 0.85}, mode="drift"},
@@ -640,8 +640,8 @@ function evo.conductor_tick(tracks, energy, conductor_profile)
     {param="t4_bits",      weight=0.03, range={4, 8},      mode="jump"},
     {param="t4_pwm",       weight=0.2,  range={0.1, 0.9},  mode="drift"},
     {param="t4_pwm",       weight=0.03, range={0.05, 0.95},mode="jump"},
-    {param="t1_spread",    weight=0.2,  range={0.1, 0.8},  mode="drift"},
-    {param="t1_spread",    weight=0.04, range={0, 0.95},   mode="jump"},
+    {param="t1_spread",    weight=0.2,  range={0.1, 0.5},  mode="drift"},  -- subtle detuning
+    {param="t1_spread",    weight=0.03, range={0, 0.7},    mode="jump"},
     {param="t1_cutoff",    weight=0.15, range={500, 6000},  mode="drift"},
     {param="t2_cutoff",    weight=0.15, range={200, 4000},  mode="drift"},
     {param="t3_cutoff",    weight=0.15, range={500, 8000},  mode="drift"},

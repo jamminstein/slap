@@ -200,7 +200,7 @@ function init_tracks()
   local m = tracks[1]
   m.num_steps = 12; m.division = 3; m.probability = 80
   m.cutoff = 2000; m.res = 0.15; m.gate = 0.8
-  m.spread = 0.3; m.brightness = 0.4
+  m.spread = 0.2; m.brightness = 0.3  -- low brightness = warm pad, not bells
   local m_euc = harmony.euclidean(12, 3, 0)  -- 3 hits
   local m_notes = {50, 53, 55, 57, 50, 55, 53, 50, 57, 55, 50, 53}
   for s = 1, 12 do
