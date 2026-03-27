@@ -99,16 +99,16 @@ local DIVISIONS = {
 
 -- bezier modulation routing targets
 local MOD_ROUTES = {
-  {name = "MNT.cut", param = "t1_cutoff", sc_param = "cutoff", track = 1, base_mult = 0.35},
-  {name = "MNT.spd", param = "t1_spread", sc_param = "spread", track = 1, base_mult = 0.4},
-  {name = "ZKT.cut", param = "t2_cutoff", sc_param = "cutoff", track = 2, base_mult = 0.35},
-  {name = "ZKT.acc", param = "t2_accent", sc_param = "accent", track = 2, base_mult = 0.4},
-  {name = "TRD.cut", param = "t3_cutoff", sc_param = "cutoff", track = 3, base_mult = 0.35},
-  {name = "TRD.mrp", param = "t3_morph",  sc_param = "morph",  track = 3, base_mult = 0.4},
-  {name = "BZT.cut", param = "t4_cutoff", sc_param = "cutoff", track = 4, base_mult = 0.3},
-  {name = "BZT.pwm", param = "t4_pwm",    sc_param = "pwm",    track = 4, base_mult = 0.4},
+  {name = "MNT.cut", param = "t1_cutoff", sc_param = "cutoff", track = 1, base_mult = 0.7},
+  {name = "MNT.brt", param = "t1_brightness", sc_param = "brightness", track = 1, base_mult = 0.5},
+  {name = "ZKT.cut", param = "t2_cutoff", sc_param = "cutoff", track = 2, base_mult = 0.7},
+  {name = "ZKT.acc", param = "t2_accent", sc_param = "accent", track = 2, base_mult = 0.6},
+  {name = "TRD.cut", param = "t3_cutoff", sc_param = "cutoff", track = 3, base_mult = 0.7},
+  {name = "TRD.mrp", param = "t3_morph",  sc_param = "morph",  track = 3, base_mult = 0.6},
+  {name = "BZT.cut", param = "t4_cutoff", sc_param = "cutoff", track = 4, base_mult = 0.6},
+  {name = "BZT.pwm", param = "t4_pwm",    sc_param = "pwm",    track = 4, base_mult = 0.5},
 }
-local mod_amounts = {0, 0, 0, 0, 0, 0, 0, 0}
+local mod_amounts = {0.3, 0.2, 0.4, 0.25, 0.35, 0.3, 0.25, 0.2}  -- bezier active from start
 local mod_values = {0, 0, 0, 0, 0, 0, 0, 0}
 local selected_route = 1
 
@@ -833,8 +833,15 @@ function apply_bezier_modulation()
       local base = params:get(route.param)
       local raw = sources[i] * mod_amounts[i]
       mod_values[i] = raw
-      local mod = raw * base * route.base_mult
-      engine.set_param(route.track - 1, route.sc_param, util.clamp(base + mod, 30, 16000))
+      local mod_val = raw * route.base_mult
+      -- cutoff params use multiplicative mod, others use additive
+      local new_val
+      if route.sc_param == "cutoff" then
+        new_val = util.clamp(base * (1 + mod_val), 30, 16000)
+      else
+        new_val = util.clamp(base + mod_val * 0.5, 0, 1)
+      end
+      engine.set_param(route.track - 1, route.sc_param, new_val)
     else
       mod_values[i] = 0
     end
