@@ -617,32 +617,36 @@ function evo.conductor_tick(tracks, energy, conductor_profile)
   -- universal knobs: params that EVERY conductor should touch
   -- mostly drift, but some jump for occasional radical moments
   local universal_knobs = {
-    {param="t1_brightness",weight=0.15, range={0.1, 0.9},  mode="drift"},
-    {param="t1_brightness",weight=0.03, range={0.02, 0.98},mode="jump"},  -- rare radical
-    {param="t1_res",       weight=0.1,  range={0.05, 0.5}, mode="drift"},
-    {param="t1_res",       weight=0.02, range={0.02, 0.7}, mode="jump"},
-    {param="t2_res",       weight=0.12, range={0.2, 0.85}, mode="drift"},
-    {param="t2_res",       weight=0.03, range={0.1, 0.95}, mode="jump"},  -- acid scream
-    {param="t2_accent",    weight=0.03, range={0, 1},      mode="jump"},  -- sudden accent
-    {param="t3_res",       weight=0.1,  range={0.1, 0.6},  mode="drift"},
-    {param="t3_fmamt",     weight=0.15, range={0, 0.5},    mode="drift"},
-    {param="t3_fmamt",     weight=0.04, range={0.3, 0.9},  mode="jump"},  -- FM metallic bell
-    {param="t3_morph",     weight=0.04, range={0, 1},      mode="jump"},  -- sudden morph
-    {param="t3_lfoRate",   weight=0.08, range={0.5, 10},   mode="drift"},
-    {param="t3_lfoRate",   weight=0.02, range={0.1, 20},   mode="jump"},  -- LFO surge
-    {param="t3_lfoDepth",  weight=0.1,  range={0, 0.35},   mode="drift"},
-    {param="t3_lfoDepth",  weight=0.02, range={0.2, 0.6},  mode="jump"},  -- deep wobble
-    {param="t4_res",       weight=0.1,  range={0.05, 0.5}, mode="drift"},
-    {param="t4_bits",      weight=0.08, range={6, 16},     mode="drift"},
-    {param="t4_bits",      weight=0.03, range={3, 8},      mode="jump"},  -- heavy bitcrush
-    {param="t4_pwm",       weight=0.1,  range={0.1, 0.9},  mode="drift"},
-    {param="t4_pwm",       weight=0.02, range={0.05, 0.95},mode="jump"},  -- extreme pulse
-    {param="t1_spread",    weight=0.04, range={0.6, 0.98}, mode="jump"},  -- spectral explosion
-    {param="t1_spread",    weight=0.02, range={0, 0.05},   mode="jump"},  -- spectral collapse
-    {param="t1_cutoff",    weight=0.02, range={200, 8000},  mode="jump"},
-    {param="t2_cutoff",    weight=0.02, range={80, 6000},   mode="jump"},
-    {param="t3_cutoff",    weight=0.02, range={300, 10000}, mode="jump"},
-    {param="t4_engine",    weight=0.015, range={1, 4},      mode="jump"},  -- rare engine switch
+    -- weights bumped: things should MOVE constantly
+    {param="t1_brightness",weight=0.25, range={0.1, 0.9},  mode="drift"},
+    {param="t1_brightness",weight=0.05, range={0.02, 0.98},mode="jump"},
+    {param="t1_res",       weight=0.2,  range={0.05, 0.5}, mode="drift"},
+    {param="t1_res",       weight=0.03, range={0.02, 0.7}, mode="jump"},
+    {param="t2_res",       weight=0.2,  range={0.2, 0.85}, mode="drift"},
+    {param="t2_res",       weight=0.04, range={0.1, 0.95}, mode="jump"},
+    {param="t2_accent",    weight=0.15, range={0.2, 0.9},  mode="drift"},
+    {param="t2_accent",    weight=0.04, range={0, 1},      mode="jump"},
+    {param="t3_res",       weight=0.18, range={0.1, 0.6},  mode="drift"},
+    {param="t3_fmamt",     weight=0.25, range={0, 0.35},   mode="drift"},  -- capped low
+    {param="t3_fmamt",     weight=0.03, range={0.2, 0.6},  mode="jump"},   -- less extreme
+    {param="t3_morph",     weight=0.2,  range={0, 0.8},    mode="drift"},
+    {param="t3_morph",     weight=0.04, range={0, 1},      mode="jump"},
+    {param="t3_lfoRate",   weight=0.15, range={0.5, 10},   mode="drift"},
+    {param="t3_lfoRate",   weight=0.03, range={0.1, 20},   mode="jump"},
+    {param="t3_lfoDepth",  weight=0.18, range={0, 0.35},   mode="drift"},
+    {param="t3_lfoDepth",  weight=0.03, range={0.2, 0.5},  mode="jump"},
+    {param="t4_res",       weight=0.18, range={0.05, 0.5}, mode="drift"},
+    {param="t4_bits",      weight=0.15, range={6, 16},     mode="drift"},
+    {param="t4_bits",      weight=0.03, range={4, 8},      mode="jump"},
+    {param="t4_pwm",       weight=0.2,  range={0.1, 0.9},  mode="drift"},
+    {param="t4_pwm",       weight=0.03, range={0.05, 0.95},mode="jump"},
+    {param="t1_spread",    weight=0.2,  range={0.1, 0.8},  mode="drift"},
+    {param="t1_spread",    weight=0.04, range={0, 0.95},   mode="jump"},
+    {param="t1_cutoff",    weight=0.15, range={500, 6000},  mode="drift"},
+    {param="t2_cutoff",    weight=0.15, range={200, 4000},  mode="drift"},
+    {param="t3_cutoff",    weight=0.15, range={500, 8000},  mode="drift"},
+    {param="t4_cutoff",    weight=0.1,  range={2000,10000}, mode="drift"},
+    {param="t4_engine",    weight=0.02, range={1, 4},       mode="jump"}
   }
 
   -- combine conductor knobs + universal
@@ -659,17 +663,20 @@ function evo.conductor_tick(tracks, energy, conductor_profile)
       local hi = knob.range[2]
 
       if knob.mode == "jump" then
-        -- move toward a random target, but slowly enough to feel musical
+        -- move toward a random target
         local center = (lo + hi) * 0.5
         local spread = (hi - lo) * 0.5
         local target = center + (math.random() - 0.5) * spread * 2 * energy
-        evo.sweep_toward(knob.param, util.clamp(target, lo, hi), 0.03)
+        evo.sweep_toward(knob.param, util.clamp(target, lo, hi), 0.12)
       elseif knob.mode == "drift" then
-        -- gentle random walk within range
+        -- random walk within range
         local ok, cur = pcall(function() return params:get(knob.param) end)
         if ok then
-          local drift = (math.random() - 0.5) * (hi - lo) * 0.04
-          evo.sweep_toward(knob.param, util.clamp(cur + drift, lo, hi), 0.02)
+          local drift = (math.random() - 0.5) * (hi - lo) * 0.08
+          -- gravity: pull toward center when at extremes
+          local center = (lo + hi) * 0.5
+          local gravity = (center - cur) * 0.02
+          evo.sweep_toward(knob.param, util.clamp(cur + drift + gravity, lo, hi), 0.06)
         end
       end
 
