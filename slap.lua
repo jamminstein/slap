@@ -469,8 +469,9 @@ function init_params()
     local sc = tracks._scale_notes or scale_notes
     if #sc > 0 and playing then
       if prof.lock_16 then
-        -- locked conductors: structured euclidean patterns, high density
-        local pulses = {3, 5, 4, 4}
+        -- locked conductors: per-conductor euclidean patterns + probability
+        local pulses = prof.default_pulses or {3, 5, 4, 4}
+        local probs = prof.default_probability or {90, 95, 85, 90}
         for t = 1, NUM_TRACKS do
           tracks[t].num_steps = 16
           local p = pulses[t] or 4
@@ -479,10 +480,10 @@ function init_params()
             tracks[t].steps[s].on = euc[s] or false
             if tracks[t].steps[s].on and #sc > 0 then
               tracks[t].steps[s].note = sc[math.random(#sc)]
-              tracks[t].steps[s].vel = 0.6 + math.random() * 0.3
+              tracks[t].steps[s].vel = 0.5 + math.random() * 0.4
             end
           end
-          tracks[t].probability = 90 + math.random(0, 10)
+          tracks[t].probability = probs[t] or 90
           pcall(function() params:set("t" .. t .. "_probability", tracks[t].probability) end)
         end
       else

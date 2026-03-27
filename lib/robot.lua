@@ -232,12 +232,16 @@ robot.profiles = {
     },
     -- special flag: forces all tracks to 16 steps
     lock_16 = true, requantize = true,
+    default_pulses = {4, 8, 6, 8},  -- pad, driving bass, hook, hi-hat
+    default_probability = {95, 100, 90, 95},
   },
   -- KRAFTWERK: the original machine. minimal, precise, robotic.
   -- almost nothing changes. when it does, it's one note. hypnotic.
   {
     name = "KRAFTWERK", desc = "minimal machine",
     personality = 2, lock_16 = true, requantize = true,
+    default_pulses = {2, 4, 3, 6},  -- minimal: sparse pad, simple bass, hint melody, steady perc
+    default_probability = {80, 95, 60, 90},
     head = "square", eyes = "dot", mouth = "flat", feat = "antenna",
     intensity_range = {0.05, 0.2}, harmony_set = "minimal", harmony_chance = 0.005, home_tendency = 0.12,
     default_timbre = 3, default_divisions = {3,2,2,2},
@@ -259,6 +263,8 @@ robot.profiles = {
   {
     name = "MR FINGERS", desc = "deep house warmth",
     personality = 2, lock_16 = true, requantize = true,
+    default_pulses = {5, 7, 5, 6},  -- deep house: lush pad, walking bass, melody, groove
+    default_probability = {90, 95, 80, 85},
     head = "circle", eyes = "round", mouth = "smile", feat = "halo",
     intensity_range = {0.25, 0.55}, harmony_set = "classical", harmony_chance = 0.03, home_tendency = 0.05,
     default_timbre = 3, default_divisions = {3,2,2,2},
@@ -286,6 +292,8 @@ robot.profiles = {
   {
     name = "BURIAL", desc = "dark ghost step",
     personality = 4, lock_16 = true, requantize = true,
+    default_pulses = {3, 5, 4, 3},  -- dark: sparse pad, stuttering bass, ghostly, thin perc
+    default_probability = {70, 80, 65, 60},
     head = "diamond", eyes = "dot", mouth = "none", feat = "drip",
     intensity_range = {0.3, 0.65}, harmony_set = "world", harmony_chance = 0.03, home_tendency = 0.03,
     default_timbre = 4, default_divisions = {3,2,2,2},
@@ -311,6 +319,8 @@ robot.profiles = {
   {
     name = "APHEX", desc = "precise IDM",
     personality = 3, lock_16 = true, requantize = true,
+    default_pulses = {4, 7, 6, 5},  -- IDM: moderate pad, complex bass, angular melody, precise perc
+    default_probability = {85, 90, 80, 85},
     head = "circle", eyes = "round", mouth = "smile", feat = "sparks",
     intensity_range = {0.35, 0.7}, harmony_set = "jazz", harmony_chance = 0.05, home_tendency = 0.025,
     default_timbre = 2, default_divisions = {2,2,2,1},
@@ -339,6 +349,8 @@ robot.profiles = {
   {
     name = "JEFF MILLS", desc = "minimal relentless",
     personality = 4, lock_16 = true, requantize = true,
+    default_pulses = {2, 5, 3, 7},  -- minimal: barely there pad, stripped bass, hint, relentless hat
+    default_probability = {70, 90, 55, 95},
     head = "square", eyes = "line", mouth = "flat", feat = "orbit",
     intensity_range = {0.2, 0.5}, harmony_set = "minimal", harmony_chance = 0.01, home_tendency = 0.07,
     default_timbre = 8, default_divisions = {3,2,2,2},
