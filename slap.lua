@@ -196,47 +196,49 @@ function init_tracks()
     end
   end
 
-  -- MANTA: 12-step pads, 1/8 division — euclidean E(4,12)
+  -- MANTA: 12-step pads, 1/8 division — sparse E(2,12)
   local m = tracks[1]
-  m.num_steps = 12; m.division = 3; m.probability = 85
+  m.num_steps = 12; m.division = 3; m.probability = 80
   m.cutoff = 2000; m.res = 0.15; m.gate = 0.8
   m.spread = 0.3; m.brightness = 0.4
-  local m_euc = harmony.euclidean(12, 4, 0)
+  local m_euc = harmony.euclidean(12, 2, 0)  -- SPARSE: only 2 hits
   local m_notes = {50, 53, 55, 57, 50, 55, 53, 50, 57, 55, 50, 53}
   for s = 1, 12 do
-    m.steps[s] = {on = m_euc[s] or false, note = m_notes[s], vel = 0.4 + math.random() * 0.25, prob = 100}
+    m.steps[s] = {on = m_euc[s] or false, note = m_notes[s], vel = 0.4 + math.random() * 0.2, prob = 100}
   end
 
-  -- ZKIT: 16-step acid bass, 1/16 division — euclidean E(6,16)
+  -- ZKIT: 16-step acid bass, 1/16 division — sparse E(4,16)
   local z = tracks[2]
-  z.num_steps = 16; z.division = 2; z.probability = 80
+  z.num_steps = 16; z.division = 2; z.probability = 75
   z.cutoff = 400; z.res = 0.6; z.gate = 0.4; z.accent = 0.7
-  local z_euc = harmony.euclidean(16, 6, 0)
-  local z_notes = {38, 38, 45, 38, 43, 38, 45, 43, 38, 38, 45, 38, 43, 38, 45, 38}
+  local z_euc = harmony.euclidean(16, 4, 0)  -- 4 hits, not 6
+  -- root-heavy bass: mostly D2(38), occasional 5th and octave
+  local z_notes = {38, 38, 45, 38, 43, 38, 38, 43, 38, 38, 45, 38, 38, 38, 43, 38}
   for s = 1, 16 do
-    z.steps[s] = {on = z_euc[s] or false, note = z_notes[s], vel = z_euc[s] and (0.6 + math.random() * 0.35) or 0.5, prob = 100}
+    z.steps[s] = {on = z_euc[s] or false, note = z_notes[s], vel = z_euc[s] and (0.6 + math.random() * 0.3) or 0.5, prob = 100}
   end
 
-  -- TOROID: 14-step melody, 1/16 division — euclidean E(5,14)
+  -- TOROID: 14-step melody, 1/16 division — sparse E(3,14)
   local t = tracks[3]
-  t.num_steps = 14; t.division = 2; t.probability = 70
+  t.num_steps = 14; t.division = 2; t.probability = 0  -- START SILENT
   t.cutoff = 2500; t.res = 0.25; t.gate = 0.5
   t.morph = 0.35; t.fmamt = 0.25; t.lfoRate = 3; t.lfoDepth = 0.15
-  local t_euc = harmony.euclidean(14, 5, 2)
+  local t_euc = harmony.euclidean(14, 3, 2)  -- 3 hits, not 5
   local t_notes = {62, 60, 65, 62, 67, 65, 60, 62, 67, 65, 62, 60, 65, 67}
   for s = 1, 14 do
-    t.steps[s] = {on = t_euc[s] or false, note = t_notes[s], vel = t_euc[s] and (0.5 + math.random() * 0.35) or 0.5, prob = 100}
+    t.steps[s] = {on = t_euc[s] or false, note = t_notes[s], vel = t_euc[s] and (0.5 + math.random() * 0.3) or 0.5, prob = 100}
   end
 
-  -- BZZT: 10-step percussion, 1/32 division — euclidean E(4,10)
+  -- BZZT: 10-step percussion, 1/32 division — sparse E(3,10)
   local b = tracks[4]
-  b.num_steps = 10; b.division = 1; b.probability = 75
+  b.num_steps = 10; b.division = 1; b.probability = 0  -- START SILENT
   b.cutoff = 7000; b.res = 0.15; b.gate = 0.15
   b.engine_sel = 0; b.pwm = 0.5; b.bits = 10
-  local b_euc = harmony.euclidean(10, 4, 1)
-  local b_notes = {48, 60, 55, 48, 67, 60, 48, 55, 67, 60}
+  local b_euc = harmony.euclidean(10, 3, 1)  -- 3 hits, not 4
+  -- same pitch for percussion feel
+  local b_notes = {55, 55, 55, 55, 55, 55, 55, 55, 55, 55}
   for s = 1, 10 do
-    b.steps[s] = {on = b_euc[s] or false, note = b_notes[s], vel = b_euc[s] and (0.6 + math.random() * 0.35) or 0.5, prob = 100}
+    b.steps[s] = {on = b_euc[s] or false, note = b_notes[s], vel = b_euc[s] and (0.6 + math.random() * 0.3) or 0.5, prob = 100}
   end
 
   tracks._scale_notes = scale_notes

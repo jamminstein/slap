@@ -140,7 +140,43 @@ function evo.pattern_mutate(tracks, track_idx, mutation_type, args)
       end
       if #active > 0 and #fp > 0 then
         local idx = active[math.random(#active)]
-        t.steps[idx].note = fp[math.random(#fp)]
+        -- melodic intelligence: pick note relative to neighbors
+        local prev_note = nil
+        for j = idx - 1, 1, -1 do
+          if t.steps[j].on then prev_note = t.steps[j].note; break end
+        end
+        if not prev_note then prev_note = t.steps[idx].note end
+
+        -- 70% stepwise (within 4 semitones), 20% skip (5-7), 10% leap
+        local roll = math.random()
+        local candidates = {}
+        if roll < 0.7 then
+          -- stepwise: notes within 4 semitones of previous
+          for _, n in ipairs(fp) do
+            if math.abs(n - prev_note) <= 4 then table.insert(candidates, n) end
+          end
+        elseif roll < 0.9 then
+          -- skip: 5-7 semitones
+          for _, n in ipairs(fp) do
+            local d = math.abs(n - prev_note)
+            if d >= 5 and d <= 7 then table.insert(candidates, n) end
+          end
+        end
+        -- leap or fallback: any note in pool
+        if #candidates == 0 then candidates = fp end
+
+        -- root gravity on beat 1
+        local root = scale_notes[1] or 50
+        if idx == 1 and math.random() < 0.6 then
+          -- favor root/octave on beat 1
+          local root_notes = {}
+          for _, n in ipairs(fp) do
+            if n % 12 == root % 12 then table.insert(root_notes, n) end
+          end
+          if #root_notes > 0 then candidates = root_notes end
+        end
+
+        t.steps[idx].note = candidates[math.random(#candidates)]
       end
     end
 
@@ -245,16 +281,48 @@ local function filter_pool(pool, track_idx)
 end
 
 -- generate a fresh pattern for a track from a note pool
+-- uses melodic intelligence: stepwise motion, root gravity on beat 1
 function evo.generate_pattern(tracks, track_idx, pool, density, vel_lo, vel_hi)
   local t = tracks[track_idx]
   if not t then return end
   local ns = t.num_steps or #t.steps
   local fp = filter_pool(pool, track_idx)
+  if #fp == 0 then return end
+
+  -- start with root-ish note
+  local root = pool[1] or 50
+  local root_candidates = {}
+  for _, n in ipairs(fp) do
+    if n % 12 == root % 12 then table.insert(root_candidates, n) end
+  end
+  local prev_note = #root_candidates > 0 and root_candidates[math.random(#root_candidates)] or fp[math.random(#fp)]
+
   for i = 1, ns do
-    if not t.steps[i] then t.steps[i] = {on = false, note = 60, vel = 0.8} end
-    t.steps[i].note = fp[math.random(#fp)]
-    t.steps[i].vel = vel_lo + math.random() * (vel_hi - vel_lo)
+    if not t.steps[i] then t.steps[i] = {on = false, note = 60, vel = 0.8, prob = 100} end
     t.steps[i].on = math.random() < density
+
+    -- melodic contour: mostly stepwise
+    local candidates = {}
+    for _, n in ipairs(fp) do
+      if math.abs(n - prev_note) <= 5 then table.insert(candidates, n) end
+    end
+    if #candidates == 0 then candidates = fp end
+
+    -- beat 1: root gravity
+    if i == 1 and #root_candidates > 0 then
+      t.steps[i].note = root_candidates[math.random(#root_candidates)]
+    else
+      t.steps[i].note = candidates[math.random(#candidates)]
+    end
+    prev_note = t.steps[i].note
+
+    -- velocity contour: slight accent on downbeats
+    local base_vel = vel_lo + math.random() * (vel_hi - vel_lo)
+    if i == 1 or (ns >= 8 and i == math.floor(ns / 2) + 1) then
+      base_vel = math.min(1.0, base_vel + 0.15)  -- accent downbeats
+    end
+    t.steps[i].vel = base_vel
+    t.steps[i].prob = t.steps[i].prob or 100
   end
   t.steps[1].on = true
 end
@@ -397,11 +465,11 @@ local ACTION_NAMES = {
   "crescendo", "decrescendo"
 }
 
--- default fallback weights
+-- default fallback weights — THIN and GHOST are heavy, THICKEN is rare
 local DEFAULT_STYLE = {
-  replace_one = 0.13, velocity_drift = 0.12, rotate = 0.08,
-  thicken = 0.08, thin = 0.07, shift = 0.07,
-  extend = 0.04, truncate = 0.03, accent = 0.10, ghost = 0.12,
+  replace_one = 0.12, velocity_drift = 0.10, rotate = 0.07,
+  thicken = 0.03, thin = 0.15, shift = 0.06,
+  extend = 0.03, truncate = 0.04, accent = 0.08, ghost = 0.16,
   crescendo = 0.08, decrescendo = 0.08,
 }
 
@@ -424,8 +492,67 @@ function evo.conductor_tick(tracks, energy, conductor_profile)
   end
 
   -- ======== ARRANGEMENT INTELLIGENCE ========
-  -- call and response: keep total density in check
-  -- count active steps across all tracks
+  -- real arrangement: cycle through configurations with actual silence
+  -- configurations: which tracks should be active (probability > 0)
+  local ARRANGEMENTS = {
+    {1, 0, 0, 0},  -- solo MANTA
+    {0, 1, 0, 0},  -- solo ZKIT
+    {1, 1, 0, 0},  -- duo: pad + bass
+    {0, 1, 0, 1},  -- duo: bass + perc
+    {1, 1, 1, 0},  -- trio: no perc
+    {0, 1, 1, 1},  -- trio: no pad
+    {1, 1, 0, 1},  -- trio: no melody
+    {1, 1, 1, 1},  -- full
+    {1, 1, 1, 1},  -- full (weighted to appear more)
+    {1, 0, 1, 0},  -- duo: pad + melody
+  }
+
+  -- every ~16 ticks, consider changing arrangement
+  if not evo._arr_counter then evo._arr_counter = 0 end
+  if not evo._arr_current then evo._arr_current = {1, 1, 0, 0} end -- start with duo
+  evo._arr_counter = evo._arr_counter + 1
+
+  local arr_change_rate = lock_16 and 24 or 16
+  if evo._arr_counter >= arr_change_rate and math.random() < 0.3 * intensity then
+    evo._arr_counter = 0
+    -- pick new arrangement, biased by energy
+    local idx
+    if energy < 0.3 then
+      -- low energy: solo or duo
+      idx = ({1, 2, 3, 4, 10})[math.random(5)]
+    elseif energy < 0.6 then
+      -- mid: duo or trio
+      idx = ({3, 4, 5, 6, 7, 10})[math.random(6)]
+    else
+      -- high: trio or full
+      idx = ({5, 6, 7, 8, 9})[math.random(5)]
+    end
+    evo._arr_current = ARRANGEMENTS[idx]
+  end
+
+  -- apply arrangement: set probability to 0 for silent tracks
+  for ti = 1, 4 do
+    local prob_param = "t" .. ti .. "_probability"
+    if not is_user_owned(prob_param) then
+      if evo._arr_current[ti] == 0 then
+        -- this track should be silent
+        local ok, cur = pcall(function() return params:get(prob_param) end)
+        if ok and cur > 5 then
+          -- fade out over a few ticks
+          params:set(prob_param, math.max(0, cur - 15))
+        end
+      else
+        -- this track should be active, restore if low
+        local ok, cur = pcall(function() return params:get(prob_param) end)
+        if ok and cur < 40 then
+          -- fade in
+          params:set(prob_param, math.min(cur + 10, 70 + energy * 30))
+        end
+      end
+    end
+  end
+
+  -- density check: thin the densest track if total is too high
   local total_active = 0
   local track_density = {}
   for ti = 1, 4 do
@@ -438,29 +565,14 @@ function evo.conductor_tick(tracks, energy, conductor_profile)
     total_active = total_active + count
   end
 
-  -- if total density is too high, thin the densest track
-  local max_total = lock_16 and 32 or 24  -- locked allows more density
+  local max_total = lock_16 and 28 or 18  -- tighter limits
   if total_active > max_total then
-    -- find densest track
     local densest = 1
     for ti = 2, 4 do
       if track_density[ti] > track_density[densest] then densest = ti end
     end
     evo.pattern_mutate(tracks, densest, "thin", {count = 2})
     evo.pattern_mutate(tracks, densest, "ghost")
-  end
-
-  -- call and response: if one track is very dense, thin another
-  for ti = 1, 4 do
-    if track_density[ti] > 0.75 then
-      -- find a different track to thin
-      local other = ((ti - 1 + math.random(1, 3)) % 4) + 1
-      if track_density[other] > 0.3 then
-        if math.random() < 0.3 then
-          evo.pattern_mutate(tracks, other, "thin")
-        end
-      end
-    end
   end
 
   -- the maestro can touch MULTIPLE things per tick at high intensity
@@ -597,32 +709,7 @@ function evo.conductor_tick(tracks, energy, conductor_profile)
     end
   end
 
-  -- ======== TRACK PROBABILITY RIDING ========
-  -- creates dropouts and sparse moments
-  if math.random() < 0.15 * intensity then
-    local t_idx = math.random(1, 4)
-    local prob_param = "t" .. t_idx .. "_probability"
-    if not is_user_owned(prob_param) then
-      local ok, cur = pcall(function() return params:get(prob_param) end)
-      if ok then
-        -- drift toward a target based on intensity
-        -- low intensity = sparse (probability drops), high = full
-        local target
-        if lock_16 then
-          -- locked conductors: keep it 60-100%
-          target = 60 + energy * 40
-        else
-          -- loose conductors: can go very sparse
-          target = 20 + energy * 70
-        end
-        -- add randomness so it's not predictable
-        target = target + (math.random() - 0.5) * 30
-        target = util.clamp(target, 10, 100)
-        local new_val = cur + (target - cur) * 0.1
-        params:set(prob_param, util.clamp(new_val, 10, 100))
-      end
-    end
-  end
+  -- (probability riding now handled by arrangement intelligence above)
 
   -- ======== HARMONIC MOVES ========
   -- occasional key/scale changes based on conductor's harmony_set
